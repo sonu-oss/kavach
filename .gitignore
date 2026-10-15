@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.pytest_cache/
+backend/.env
+*.db
+backend/data/
+
+# OS / editor / local tooling
+.DS_Store
+.vscode/
+.claude/

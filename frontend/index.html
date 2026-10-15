@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kavach Smart Shield</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- Mock chat app: stands in for Instagram / WhatsApp in the demo -->
+    <aside class="contacts">
+      <header class="contacts__head">
+        <span class="logo-dot"></span>
+        <strong>ChatSpace</strong>
+        <span class="muted small">mock chat</span>
+      </header>
+      <div class="contacts__import">
+        <button id="import-btn" class="btn btn--block import-btn" type="button">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M4 5a2 2 0 0 1 2-2h8l6 6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Zm9 0v5h5M8 13h8v2H8v-2Zm0 4h5v2H8v-2Z"/></svg>
+          Scan a screenshot
+        </button>
+      </div>
+      <ul id="contact-list" class="contact-list"></ul>
+      <div class="contacts__foot">
+        <button id="vault-btn" class="vault-btn" type="button">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 1 3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4Zm0 6a3 3 0 0 1 1 5.83V16h-2v-3.17A3 3 0 0 1 12 7Z"/></svg>
+          <span>Evidence Vault</span>
+          <span id="vault-count" class="vault-count">0</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="chat">
+      <header class="chat__head">
+        <div class="avatar" id="chat-avatar">A</div>
+        <div>
+          <div class="chat__name" id="chat-name"></div>
+          <div class="muted small" id="chat-sub"></div>
+        </div>
+      </header>
+
+      <!-- The Shield panel reads messages from this element, like an extension content script would -->
+      <section id="chat-area" class="chat__body" aria-live="polite"></section>
+
+      <form id="composer" class="composer">
+        <select id="send-as" title="Send as" aria-label="Send as">
+          <option value="me">You</option>
+          <option value="them">Them</option>
+        </select>
+        <input id="composer-input" autocomplete="off" placeholder="Type a message… (switch to “Them” to simulate the sender)" />
+        <button type="submit" class="btn btn--primary">Send</button>
+      </form>
+
+      <!-- Screenshot import: the victim pastes a real chat screenshot; OCR runs in this browser -->
+      <section id="import-view" class="import" hidden>
+        <header class="import__head">
+          <div>
+            <div class="chat__name">Scan a chat screenshot</div>
+            <div class="muted small">Text is read on this device. The image is never uploaded.</div>
+          </div>
+        </header>
+
+        <div class="import__body">
+          <div id="dropzone" class="dropzone" tabindex="0">
+            <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path fill="currentColor" d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Zm0 16H5V5h14v14Zm-5-7-3 3.72L9 13l-3 4h12l-4-5Z"/></svg>
+            <p><strong>Paste a screenshot</strong> (⌘V / Ctrl+V), drop it here, or</p>
+            <div class="dropzone__actions">
+              <label class="btn btn--primary">Choose image<input id="file-input" type="file" accept="image/*" multiple hidden /></label>
+              <button id="sample-btn" type="button" class="btn">Try a sample</button>
+            </div>
+            <p class="muted tiny">Long chat? Add several screenshots in order, top to bottom.</p>
+          </div>
+
+          <div id="ocr-progress" class="ocr-progress" hidden>
+            <div class="ocr-progress__bar"><span></span></div>
+            <div class="muted small" id="ocr-status">Loading text reader…</div>
+          </div>
+
+          <div id="shots" class="shots"></div>
+
+          <div id="review" class="review" hidden>
+            <div class="review__head">
+              <p class="section-title">Check the messages we read</p>
+              <label class="small">Their name
+                <input id="other-name" placeholder="e.g. rahul_k_07" maxlength="60" />
+              </label>
+            </div>
+            <p class="muted tiny">Tap <em>Them / You</em> to fix who sent a message. Edit any text that was misread.</p>
+            <ol id="review-list" class="review__list"></ol>
+            <button id="add-row" type="button" class="btn btn--ghost small">+ Add a message</button>
+          </div>
+        </div>
+
+        <footer class="import__foot">
+          <button id="import-cancel" type="button" class="btn">Cancel</button>
+          <button id="import-scan" type="button" class="btn btn--primary" disabled>Scan with Kavach</button>
+        </footer>
+      </section>
+
+      <!-- Evidence Vault: hash-chained, server-timestamped records -->
+      <section id="vault-view" class="vault" hidden>
+        <header class="vault__head">
+          <div>
+            <div class="chat__name">Evidence Vault</div>
+            <div class="muted small">Every saved message is sealed with SHA-256 and chained to the one before it.</div>
+          </div>
+          <span id="chain-pill" class="chain-pill">…</span>
+        </header>
+        <div class="vault__toolbar">
+          <button id="verify-btn" type="button" class="btn btn--primary">Verify chain</button>
+          <a id="report-btn" class="btn" href="/evidence/report" download="kavach-evidence-report.pdf">Export PDF report</a>
+        </div>
+        <div id="vault-body" class="vault__body"></div>
+      </section>
+    </main>
+
+    <!-- Kavach Smart Shield side panel -->
+    <aside class="shield">
+      <header class="shield__head">
+        <div class="shield__brand">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v6c0 5.25 3.4 10.15 8 11.5 4.6-1.35 8-6.25 8-11.5V5l-8-3Zm0 2.18 6 2.25V11c0 4.16-2.6 8.1-6 9.4-3.4-1.3-6-5.24-6-9.4V6.43l6-2.25Z"/></svg>
+          <div>
+            <strong>Kavach Shield</strong>
+            <div class="muted small" id="llm-status">checking backend…</div>
+          </div>
+        </div>
+        <label class="toggle small" title="Re-scan automatically when a chat opens or a new message arrives">
+          <input type="checkbox" id="auto-scan" checked /> Auto
+        </label>
+      </header>
+
+      <div id="shield-body" class="shield__body">
+        <div class="empty">
+          <p>Open a chat to scan it.</p>
+        </div>
+      </div>
+
+      <footer class="shield__foot">
+        <button id="scan-btn" class="btn btn--primary btn--block">Scan this chat</button>
+        <p class="muted tiny">Phone numbers, emails, UPI IDs and addresses are masked before anything is sent to the AI.</p>
+      </footer>
+    </aside>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
+  <script src="conversations.js"></script>
+  <script src="app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+  <script src="import.js"></script>
+  <script src="vault.js"></script>
+</body>
+</html>
