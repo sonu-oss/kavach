@@ -1,8 +1,15 @@
 // Seed conversations for the mock chat. "me" is the user Kavach protects.
 // Each one is built to show a different Smart Shield category in the demo.
+// Demo incident dates are relative to today so the story always reads as "this week".
+const daysAgo = (n) => {
+  const d = new Date(Date.now() - n * 86400000);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+};
+
 window.SEED_CONVERSATIONS = [
   {
     id: "ananya",
+    incident_date: daysAgo(0),
     platform: "WhatsApp",
     name: "Ananya",
     subtitle: "College friend",
@@ -16,6 +23,7 @@ window.SEED_CONVERSATIONS = [
   },
   {
     id: "rahul",
+    incident_date: daysAgo(1),
     platform: "Instagram",
     name: "rahul_k_07",
     subtitle: "Instagram DM",
@@ -32,6 +40,7 @@ window.SEED_CONVERSATIONS = [
   },
   {
     id: "unknown",
+    incident_date: daysAgo(0),
     platform: "WhatsApp",
     name: "+91 98450 •••••",
     subtitle: "Unknown number",
@@ -47,6 +56,7 @@ window.SEED_CONVERSATIONS = [
   },
   {
     id: "vikram",
+    incident_date: daysAgo(2),
     platform: "WhatsApp",
     name: "Vikram",
     subtitle: "Ex",
@@ -60,6 +70,7 @@ window.SEED_CONVERSATIONS = [
   },
   {
     id: "bank",
+    incident_date: daysAgo(0),
     platform: "SMS",
     name: "SBl-Alerts",
     subtitle: "SMS",
@@ -73,6 +84,7 @@ window.SEED_CONVERSATIONS = [
   },
   {
     id: "meera",
+    incident_date: daysAgo(0),
     platform: "WhatsApp",
     name: "Meera",
     subtitle: "Cousin",
@@ -86,6 +98,7 @@ window.SEED_CONVERSATIONS = [
   },
   {
     id: "injection",
+    incident_date: daysAgo(3),
     platform: "Instagram",
     name: "arjun.dev",
     subtitle: "Prompt-injection test",

@@ -84,8 +84,27 @@
           <div id="review" class="review" hidden>
             <div class="review__head">
               <p class="section-title">Check the messages we read</p>
-              <label class="small">Their name
+            </div>
+            <div class="review__meta">
+              <label>Their name
                 <input id="other-name" placeholder="e.g. rahul_k_07" maxlength="60" />
+              </label>
+              <label>App it happened on <span class="req">required</span>
+                <select id="platform">
+                  <option value="">Choose…</option>
+                  <option>WhatsApp</option>
+                  <option>Instagram</option>
+                  <option>Facebook</option>
+                  <option>Snapchat</option>
+                  <option>Telegram</option>
+                  <option>X (Twitter)</option>
+                  <option>SMS</option>
+                  <option>Email</option>
+                  <option>Other</option>
+                </select>
+              </label>
+              <label>When did this happen?
+                <input id="incident-date" type="date" />
               </label>
             </div>
             <p class="muted tiny">Tap <em>Them / You</em> to fix who sent a message. Edit any text that was misread.</p>

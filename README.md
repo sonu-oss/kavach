@@ -27,7 +27,7 @@ Click **Scan a screenshot** (or just press ⌘V / Ctrl+V with a screenshot on th
 
 1. **The text is read in the browser** with Tesseract.js. The screenshot itself is never uploaded; only the extracted text goes to `/analyze`, where personal details are masked as usual.
 2. **Bubble position decides the sender:** right-aligned bubbles are "You", left-aligned ones are the other person. Timestamps, read ticks, date dividers, the status bar and the message box are removed. The contact name is taken from the chat header.
-3. **She checks the result:** she can switch Them/You, edit misread text (hard-to-read lines are outlined in amber), delete or add lines, then press **Scan with Kavach**.
+3. **She checks the result:** she can switch Them/You, edit misread text (hard-to-read lines are outlined in amber), and delete or add lines. She must also choose **which app** the chat is from, and can set **when it happened** (defaults to today, can't be in the future). Then she presses **Scan with Kavach**. The app and date are sealed into every Vault record and used in the evidence PDF, the complaint letter and the portal fields; without a stated date, the portal tab says the date shown is only the save date.
 4. The chat appears in the list like any other conversation, so the Shield panel, highlights and the Vault / Complaint buttons work the same way. The original images are kept on the conversation for the Evidence Vault.
 
 `frontend/samples/` holds two test screenshots: Hinglish in light mode and Kannada-English in dark mode. Load them with **Try a sample**. The first time, the text reader downloads about 10 MB of language data from a CDN, so do one run before the demo while online.

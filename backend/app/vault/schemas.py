@@ -1,6 +1,7 @@
+from datetime import date, timedelta
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class EvidenceMessage(BaseModel):
@@ -27,6 +28,23 @@ class EvidenceIn(BaseModel):
     analysis: dict | None = None
     # The device clock is recorded but never trusted; the server timestamp is the one hashed.
     client_captured_at: str | None = Field(default=None, max_length=40)
+    # When the harassment happened, as stated by the complainant (chat screenshots rarely show dates).
+    incident_date: date | None = None
+
+    @field_validator("platform")
+    @classmethod
+    def platform_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("platform is required")
+        return v.strip()
+
+    @field_validator("incident_date")
+    @classmethod
+    def not_in_future(cls, v: date | None) -> date | None:
+        # One day of slack for time zones between her phone and the server.
+        if v and v > date.today() + timedelta(days=1):
+            raise ValueError("incident date cannot be in the future")
+        return v
 
 
 class TamperIn(BaseModel):

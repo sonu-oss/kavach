@@ -90,6 +90,10 @@ S = {
 }
 
 
+def _dmy(iso_date: str) -> str:
+    return datetime.fromisoformat(iso_date).strftime("%d/%m/%Y")
+
+
 def ist(ts: str) -> str:
     return datetime.fromisoformat(ts).astimezone(IST).strftime("%d/%m/%Y %H:%M:%S IST")
 
@@ -174,7 +178,8 @@ def build_report() -> bytes:
         a = json.loads(first["analysis_json"]) if first["analysis_json"] else None
         head = [
             p(f"3.{n} {pdf_text(first['conversation'])} · {pdf_text(first['platform'])}", "h3"),
-            p(f"Saved {ist(first['server_timestamp'])} · capture {cid}"
+            p((f"Incident date (stated by complainant): {_dmy(first['incident_date'])} · " if first.get("incident_date") else "")
+              + f"Saved {ist(first['server_timestamp'])} · capture {cid}"
               + (f" · source {escape(first['url'])}" if first["url"] else ""), "small"),
         ]
         if a:
@@ -227,7 +232,8 @@ def build_report() -> bytes:
         "Export the vault records (id order). For each record build the JSON object "
         "<font name='Courier'>{\"record\": {id, capture_id, kind, platform, conversation, url, sender, "
         "message_text, message_time, message_ref, flagged, screenshot_kind, screenshot_sha256, "
-        "analysis_json, client_captured_at}, \"server_timestamp\": ..., \"prev_hash\": ...}</font>, "
+        "analysis_json, client_captured_at, and incident_date when present}, \"server_timestamp\": ..., "
+        "\"prev_hash\": ...}</font>, "
         "serialise it with sorted keys and no whitespace (UTF-8), and compute SHA-256. The result must "
         "equal the record's seal, and each record's prev_hash must equal the previous record's seal "
         f"(the first record uses {store.GENESIS[:8]}…, sixty-four zeros). Screenshot files must hash to "

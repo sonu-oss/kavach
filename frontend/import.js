@@ -20,6 +20,8 @@
     review: $("#review"),
     list: $("#review-list"),
     name: $("#other-name"),
+    platform: $("#platform"),
+    date: $("#incident-date"),
     addRow: $("#add-row"),
     cancel: $("#import-cancel"),
     scan: $("#import-scan"),
@@ -51,6 +53,10 @@
     images = [];
     sampleIndex = 0;
     els.name.value = "";
+    els.platform.value = "";
+    els.platform.classList.remove("missing");
+    els.date.value = localDate(new Date());
+    els.date.max = localDate(new Date());
     els.shots.innerHTML = "";
     els.view.classList.remove("has-shots");
     renderRows();
@@ -137,6 +143,7 @@
 
     const parsed = parseChat(data.lines || [], prepared.canvas.width, prepared.canvas.height);
     if (parsed.name && !els.name.value) els.name.value = parsed.name;
+    if (!els.platform.value) els.platform.classList.add("missing");
     const fresh = dropOverlap(rows, parsed.rows);
     rows.push(...fresh);
     renderRows();
@@ -298,7 +305,7 @@
   // ---------- review list ----------
   function renderRows() {
     els.review.hidden = rows.length === 0;
-    els.scan.disabled = !rows.some((r) => r.text.trim());
+    updateScanButton();
     els.list.innerHTML = "";
     rows.forEach((r, i) => {
       const li = document.createElement("li");
@@ -326,7 +333,7 @@
         r.text = ta.value;
         r.lowConf = false;
         ta.classList.remove("low-conf");
-        els.scan.disabled = !rows.some((x) => x.text.trim());
+        updateScanButton();
       };
 
       const time = document.createElement("span");
@@ -348,6 +355,17 @@
     });
   }
 
+  // A complaint must name the real app, so the platform is required before scanning.
+  function updateScanButton() {
+    const hasText = rows.some((r) => r.text.trim());
+    els.scan.disabled = !hasText || !els.platform.value;
+    els.scan.title = els.platform.value ? "" : "Choose the app this chat is from";
+  }
+  els.platform.addEventListener("change", () => {
+    els.platform.classList.toggle("missing", !els.platform.value);
+    updateScanButton();
+  });
+
   els.addRow.addEventListener("click", () => {
     rows.push({ sender: "them", text: "", time: "", lowConf: false });
     renderRows();
@@ -357,14 +375,16 @@
   // ---------- hand-off to the Shield ----------
   els.scan.addEventListener("click", () => {
     const kept = rows.filter((r) => r.text.trim());
-    if (!kept.length) return;
+    if (!kept.length || !els.platform.value) return;
     const name = els.name.value.trim() || "Screenshot chat";
     const handle = name.toLowerCase().replace(/[^\w.]+/g, "_").slice(0, 40) || "sender";
     const id = `shot-${Date.now()}`;
     const conv = {
       id,
       name,
-      subtitle: `From ${images.length} screenshot${images.length === 1 ? "" : "s"}`,
+      platform: els.platform.value,
+      incident_date: els.date.value || null,
+      subtitle: `${els.platform.value} · from ${images.length} screenshot${images.length === 1 ? "" : "s"}`,
       avatar: (name.match(/[a-z0-9]/i)?.[0] || "?").toUpperCase(),
       source: "screenshot",
       images, // kept for the Evidence Vault (Feature 2)
@@ -399,6 +419,11 @@
     n.textContent = els.shots.children.length + 1;
     div.append(img, n);
     els.shots.append(div);
+  }
+
+  // YYYY-MM-DD in her local time zone (toISOString would give UTC, a day off late at night in India).
+  function localDate(d) {
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   }
 
   function blobToDataUrl(blob) {

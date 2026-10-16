@@ -109,7 +109,7 @@
       if (!res.ok) throw new Error(body.detail || `HTTP ${res.status}`);
       if (mySeq !== seq || !isOpen) return;
       data = body;
-      els.sub.textContent = `${data.complaint.accused.join(", ")} · ${data.complaint.platform} · evidence sealed ${data.complaint.evidence_sealed_on}`;
+      els.sub.textContent = `${data.complaint.accused.join(", ")} · ${data.complaint.platform}${data.complaint.incident_date ? ` · happened ${data.complaint.incident_date}` : ""} · evidence sealed ${data.complaint.evidence_sealed_on}`;
       els.pill.className = `chain-pill ${data.pipeline.source === "llm" ? "ai" : "unchecked"}`;
       els.pill.textContent = data.pipeline.source === "llm" ? `AI drafted · ${data.sections.length} laws cited` : "Template draft (AI unavailable)";
       els.letter.value = composeLetter();
@@ -143,6 +143,7 @@
     lines.push("To,", "The Officer-in-Charge,", "Cyber Crime Police Station,", d("city"), "", `Date: ${today}`, "");
     lines.push(`Subject: ${c.subject}`, "", "Respected Sir/Madam,", "");
     lines.push(`I, ${d("name")}, residing at ${d("address")}, wish to report the following incident and request action.`, "");
+    if (c.incident_date) lines.push(`Date of incident: ${c.incident_date}`, `Platform: ${c.platform}`, "");
     lines.push(c.incident_summary, "");
 
     if (c.timeline.length) {
@@ -251,7 +252,7 @@
     const dropped = data.dropped_citations.length
       ? `<div class="dropped"><strong>${data.dropped_citations.length} citation(s) removed.</strong> The AI mentioned
           ${data.dropped_citations.map((d) => `<code>${esc(d.citation)}</code>`).join(", ")}, which ${data.dropped_citations.length === 1 ? "was" : "were"} not in the retrieved laws.</div>`
-      : `<p class="note">✓ Citation check passed: every law in the draft came from the verified corpus.</p>`;
+      : `<p class="note">✓ Citation check passed: every law in the draft came from the legal corpus.</p>`;
 
     const rows = data.retrieval
       .map(
@@ -289,6 +290,7 @@
           <span class="note">The portal's menus change; choose the closest option you see.</span></li>
         <li>Incident details
           ${field("Date", p.incident_date)}
+          ${p.incident_date_is_estimate ? `<span class="note">No incident date was given, so this is the date the evidence was saved. Change it on the portal if it happened earlier.</span>` : ""}
           ${field("Platform", p.platform)}
           ${field("Description", p.description, true)}
           <span class="note">${p.description_chars} characters${short ? ". The portal needs at least 200, so add more detail." : " (the portal needs at least 200)."}</span></li>

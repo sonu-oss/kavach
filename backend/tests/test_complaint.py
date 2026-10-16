@@ -17,8 +17,9 @@ def setup(tmp_path, monkeypatch):
     monkeypatch.setattr(retrieval, "_embed_failed", True)  # no model download in tests: BM25 + prior
 
 
-def seal_sextortion() -> str:
+def seal_sextortion(incident_date=None) -> str:
     out = store.save_capture(EvidenceIn(
+        incident_date=incident_date,
         platform="Instagram",
         conversation="rahul_k_07",
         messages=[
@@ -154,3 +155,32 @@ def test_complaint_pdf_renders():
                    "confidence": 0.9, "low_confidence": False}],
     ))
     assert pdf.startswith(b"%PDF")
+
+
+def test_stated_incident_date_reaches_the_llm_letter_and_portal(monkeypatch):
+    cid = seal_sextortion(incident_date="2026-10-14")
+    seen = []
+
+    async def fake_llm(system, payload, model, max_tokens=1500):
+        seen.append(payload)
+        if "ratings" in system:
+            return {"ratings": [{"id": c["id"], "score": 90, "why": "x"} for c in payload["candidates"]]}, model
+        return {"subject": "s", "incident_summary": "On 14/10/2026 the accused threatened me [BNS-308].",
+                "timeline": [], "section_explanations": [], "relief_sought": [], "portal_description": "d" * 300}, model
+
+    monkeypatch.setattr(drafting, "groq_json_with_fallback", fake_llm)
+    result = asyncio.run(drafting.build_complaint(cid))
+    assert seen[0]["facts"]["incident_date"] == "14/10/2026"
+    assert result["complaint"]["incident_date"] == "14/10/2026"
+    assert result["portal"]["incident_date"] == "14/10/2026" and not result["portal"]["incident_date_is_estimate"]
+
+
+def test_missing_incident_date_is_marked_as_an_estimate(monkeypatch):
+    cid = seal_sextortion()
+
+    async def down(*a, **k):
+        raise LLMError("no key")
+
+    monkeypatch.setattr(drafting, "groq_json_with_fallback", down)
+    result = asyncio.run(drafting.build_complaint(cid))
+    assert result["portal"]["incident_date_is_estimate"] and result["complaint"]["incident_date"] is None

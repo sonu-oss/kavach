@@ -134,3 +134,39 @@ def test_api_rejects_non_image_screenshots_and_gates_demo_endpoints(monkeypatch)
     assert client.post("/evidence", json=body).status_code == 400
     monkeypatch.setattr(config, "DEMO_MODE", False)
     assert client.post("/evidence/demo/reset").status_code == 403
+
+
+# ---------- incident date + platform ----------
+
+def test_incident_date_is_sealed_and_tampering_with_it_is_detected():
+    store.save_capture(capture(incident_date="2026-10-14"))
+    assert store.all_rows()[0]["incident_date"] == "2026-10-14"
+    assert store.verify()["ok"]
+    raw_sql("UPDATE evidence SET incident_date='2026-09-01' WHERE id=2")
+    assert store.verify()["first_broken_id"] == 2
+
+
+def test_records_without_incident_date_still_verify():
+    store.save_capture(capture())  # e.g. sealed before the field existed
+    assert store.all_rows()[0]["incident_date"] is None and store.verify()["ok"]
+
+
+def test_old_vault_without_the_column_is_migrated(tmp_path):
+    old_schema = store._SCHEMA.replace("    incident_date      TEXT,                   -- YYYY-MM-DD, stated by the complainant\n", "")
+    assert "incident_date" not in old_schema
+    db = sqlite3.connect(config.DATA_DIR / "kavach.db")
+    db.executescript(old_schema)
+    db.close()
+    store.save_capture(capture(incident_date="2026-10-14"))
+    assert store.verify()["ok"]
+
+
+def test_future_dates_and_blank_platform_are_rejected():
+    from datetime import date, timedelta
+
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        capture(incident_date=(date.today() + timedelta(days=5)).isoformat())
+    with pytest.raises(ValidationError):
+        EvidenceIn(platform="  ", conversation="x", messages=[{"ref": "1", "sender": "a", "text": "b"}])

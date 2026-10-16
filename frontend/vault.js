@@ -46,6 +46,7 @@
 
   const esc = (s) =>
     String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const dmy = (iso) => iso.split("-").reverse().join("/");
   const short = (h) => `${h.slice(0, 8)}…${h.slice(-6)}`;
   const when = (ts) =>
     new Date(ts).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "medium" }) + " IST";
@@ -89,6 +90,7 @@
         model: analysis.model,
       },
       client_captured_at: new Date().toISOString(),
+      incident_date: conv.incident_date || null,
     };
     const saved = await api("/evidence", {
       method: "POST",
@@ -204,7 +206,7 @@
       <header class="capture__head">
         <div>
           <div class="capture__title">${esc(first.conversation)} <span class="muted">· ${esc(first.platform)}</span></div>
-          <div class="muted small">Sealed ${esc(when(first.server_timestamp))} · ${items.length} records</div>
+          <div class="muted small">${first.incident_date ? `Happened ${esc(dmy(first.incident_date))} · ` : ""}Sealed ${esc(when(first.server_timestamp))} · ${items.length} records</div>
         </div>
         ${a ? `<span class="sev-chip sev-${esc(a.severity)}">${esc(CATEGORY_LABEL[a.category] || a.category)} · ${a.risk_score}</span>` : ""}
       </header>

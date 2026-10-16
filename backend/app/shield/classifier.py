@@ -33,7 +33,9 @@ threat of harm); "daal dunga" = "I'll post"; "viral kar dunga" = "I'll make it g
 "warna" = "or else"; "jaan se maar dunga" = "I'll kill you"; "maal" = sexual objectification.
 Kannada-English: "haakthini" = "I'll post"; "kalisthini" = "I'll send"; "kolthini" = "I'll kill";
 "hodithini" = "I'll beat"; "nodkothini" = "I'll deal with you" (threat); "bidalla" = "I won't leave you";
-"illandre" = "or else"; "ninna mane gottu" = "I know your house".
+"illandre" = "or else"; "ninna mane gottu" = "I know your house"; "kaaythini" / "kaaytini" = "I'll WAIT
+for you" (stalking, NOT a threat to kill); "nodide" = "I saw (you)"; "haakidde" = "you were wearing";
+"hinde barthini" = "I'll follow you"; "maadu" = "do it" (often a dare).
 
 Read the WHOLE conversation, not single messages: catch escalation, repeated pressure and threats
 that are only clear in context. The person to protect is "self_handle"; classify what OTHER senders do.
@@ -55,6 +57,8 @@ Only choose a category whose definition is actually met; a vague phrase is not a
 
 risk_score (0-100): 0-39 low, 40-69 medium, 70-100 high. Explicit threats of violence or leaking
 intimate images are high. Slurs or sexual demands combined with knowing where she lives are high.
+Stalking where he knows her home, hostel, college or route AND says he will turn up or wait for her in
+person is high (75+): it is a physical-safety risk.
 severity MUST match the score band.
 
 reason: 1-3 plain-language sentences for the victim (no jargon). Quote or paraphrase the key words

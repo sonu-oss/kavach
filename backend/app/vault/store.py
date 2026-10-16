@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS evidence (
     screenshot_sha256  TEXT,
     analysis_json      TEXT,
     client_captured_at TEXT,
+    incident_date      TEXT,                   -- YYYY-MM-DD, stated by the complainant
     server_timestamp   TEXT NOT NULL,
     prev_hash          TEXT NOT NULL,
     hash               TEXT NOT NULL
@@ -57,6 +58,8 @@ _HASHED_FIELDS = (
     "message_time", "message_ref", "flagged", "screenshot_kind", "screenshot_sha256",
     "analysis_json", "client_captured_at",
 )
+# Added after the first release: hashed only when present, so records sealed before it still verify.
+_OPTIONAL_HASHED_FIELDS = ("incident_date",)
 
 _lock = threading.Lock()
 _DATA_URL = re.compile(r"^data:image/(png|jpeg);base64,(.+)$", re.DOTALL)
@@ -74,6 +77,9 @@ def canonical(obj) -> bytes:
 
 def record_hash(row: dict) -> str:
     record = {f: row[f] for f in _HASHED_FIELDS}
+    for f in _OPTIONAL_HASHED_FIELDS:
+        if row.get(f) is not None:
+            record[f] = row[f]
     record["flagged"] = bool(record["flagged"])
     sealed = {"record": record, "server_timestamp": row["server_timestamp"], "prev_hash": row["prev_hash"]}
     return hashlib.sha256(canonical(sealed)).hexdigest()
@@ -102,6 +108,9 @@ def connect():
     conn.row_factory = sqlite3.Row
     try:
         conn.executescript(_SCHEMA)
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(evidence)")}
+        if "incident_date" not in cols:  # vaults created before this column existed
+            conn.execute("ALTER TABLE evidence ADD COLUMN incident_date TEXT")
         yield conn
     finally:
         conn.close()
@@ -133,6 +142,7 @@ def save_capture(item: EvidenceIn) -> dict:
         "url": item.url,
         "analysis_json": analysis_json,
         "client_captured_at": item.client_captured_at,
+        "incident_date": item.incident_date.isoformat() if item.incident_date else None,
     }
 
     # Decode and store screenshot files before touching the chain.
