@@ -242,7 +242,7 @@
           <p class="law__why">${esc(s.how_it_applies)}</p>
           <div class="law__meta"><span>${esc(s.punishment)}</span></div>
           <div class="law__meta">
-            <a href="${esc(s.source)}" target="_blank" rel="noopener">Source</a>
+            <a href="${esc(s.source)}" target="_blank" rel="noopener">Official text (India Code)</a>
             ${s.verified_against_official_text ? "<span>✓ verified against official text</span>" : "<span>Not yet checked against the official Gazette</span>"}
           </div>
         </div>`;

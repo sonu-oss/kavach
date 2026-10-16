@@ -1,19 +1,31 @@
 {
-  "_about": "Kavach legal corpus. Summaries are plain-language paraphrases written for retrieval and drafting, NOT the statutory text. Section numbers and punishments were checked against secondary sources (devgan.in, vidhijudicial.com, SFLC) on 2026-10-16. Before the demo, confirm every entry against the official text on indiacode.nic.in and set verified=true.",
+  "_about": "Kavach legal corpus. Summaries are plain-language paraphrases written for retrieval and drafting, NOT the statutory text. On 2026-10-16 every entry's number, title and punishment was compared with the official section text on India Code (indiacode.gov.in, via its public API) and corrected where needed. 'source' links to the Act on India Code; 'secondary_source' is an unofficial reference.",
   "sections": [
     {
       "id": "BNS-74",
       "act": "Bharatiya Nyaya Sanhita, 2023",
       "section": "74",
-      "title": "Assault or criminal force to woman with intent to outrage her modesty",
+      "title": "Assault or use of criminal force to woman with intent to outrage her modesty",
       "ipc_equivalent": "354",
       "summary": "Using assault or criminal force on a woman intending to outrage her modesty, or knowing it is likely to do so.",
       "punishment": "Imprisonment of 1 to 5 years and fine.",
-      "keywords": ["touch", "physical", "assault", "grope", "force", "molest"],
-      "categories": ["harassment"],
+      "keywords": [
+        "touch",
+        "physical",
+        "assault",
+        "grope",
+        "force",
+        "molest"
+      ],
+      "categories": [
+        "harassment"
+      ],
       "online_applicability": "low: needs physical assault or force, so rarely fits a purely online chat",
-      "source": "https://devgan.in/bns/section/74/",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/4bb3e636-ed67-4731-8fb1-7ebfd83e1584/sections",
+      "secondary_source": "https://devgan.in/bns/section/74/",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "BNS-75",
@@ -22,12 +34,29 @@
       "title": "Sexual harassment",
       "ipc_equivalent": "354A",
       "summary": "A man committing sexual harassment: unwelcome physical contact and advances, a demand or request for sexual favours, showing pornography against a woman's will, or making sexually coloured remarks.",
-      "punishment": "Up to 3 years, or fine, or both for contact, demands or showing pornography; up to 1 year, or fine, or both for sexually coloured remarks.",
-      "keywords": ["sexual remarks", "send pics", "send nudes", "sexual favours", "pornography", "sexy", "hot", "maal", "obscene messages", "unwanted advances"],
-      "categories": ["harassment", "sextortion_blackmail"],
+      "punishment": "Rigorous imprisonment up to 3 years, or fine, or both, for contact and advances, demands for sexual favours or showing pornography (75(2)); imprisonment up to 1 year, or fine, or both, for sexually coloured remarks (75(3)).",
+      "keywords": [
+        "sexual remarks",
+        "send pics",
+        "send nudes",
+        "sexual favours",
+        "pornography",
+        "sexy",
+        "hot",
+        "maal",
+        "obscene messages",
+        "unwanted advances"
+      ],
+      "categories": [
+        "harassment",
+        "sextortion_blackmail"
+      ],
       "online_applicability": "high: sexual remarks and demands for pictures over chat",
-      "source": "https://devgan.in/bns/section/75/",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/4bb3e636-ed67-4731-8fb1-7ebfd83e1584/sections",
+      "secondary_source": "https://devgan.in/bns/section/75/",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "BNS-77",
@@ -37,11 +66,26 @@
       "ipc_equivalent": "354C",
       "summary": "Watching or capturing the image of a woman engaged in a private act where she would expect not to be observed, or disseminating such an image. Sharing an image with others is an offence even if she consented to the image being taken but not to it being shared.",
       "punishment": "First conviction 1 to 3 years and fine; subsequent conviction 3 to 7 years and fine.",
-      "keywords": ["private photos", "intimate images", "nude", "leak", "share pics", "viral", "recorded", "video call recorded", "dissemination"],
-      "categories": ["sextortion_blackmail"],
+      "keywords": [
+        "private photos",
+        "intimate images",
+        "nude",
+        "leak",
+        "share pics",
+        "viral",
+        "recorded",
+        "video call recorded",
+        "dissemination"
+      ],
+      "categories": [
+        "sextortion_blackmail"
+      ],
       "online_applicability": "high when intimate images were captured or shared; for threats to share, pair with extortion or intimidation",
-      "source": "https://devgan.in/bns/section/77/",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/4bb3e636-ed67-4731-8fb1-7ebfd83e1584/sections",
+      "secondary_source": "https://devgan.in/bns/section/77/",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "BNS-78",
@@ -49,41 +93,84 @@
       "section": "78",
       "title": "Stalking",
       "ipc_equivalent": "354D",
-      "summary": "A man who follows or contacts a woman, or tries to contact her to foster personal interaction repeatedly despite her clear disinterest, or who monitors her use of the internet, email or any other electronic communication.",
+      "summary": "A man who follows a woman and contacts, or tries to contact, her to foster personal interaction repeatedly despite her clear disinterest (78(1)(i)), or who monitors her use of the internet, email or any other form of electronic communication (78(1)(ii)).",
       "punishment": "First conviction up to 3 years and fine; subsequent conviction up to 5 years and fine.",
-      "keywords": ["stalking", "following", "keeps messaging", "new account after block", "monitoring", "knows where I live", "waiting outside", "tracking", "repeated contact", "ignoring", "reply karo"],
-      "categories": ["stalking", "harassment", "sextortion_blackmail"],
-      "online_applicability": "high: repeated online contact after she said no, new accounts after blocking, monitoring her online activity",
-      "source": "https://devgan.in/bns/section/78/",
-      "verified": false
+      "keywords": [
+        "stalking",
+        "following",
+        "keeps messaging",
+        "new account after block",
+        "monitoring",
+        "knows where I live",
+        "waiting outside",
+        "tracking",
+        "repeated contact",
+        "ignoring",
+        "reply karo"
+      ],
+      "categories": [
+        "stalking",
+        "harassment",
+        "sextortion_blackmail"
+      ],
+      "online_applicability": "high: he keeps pursuing and contacting her after she said no (including new accounts after blocking), or monitors her online activity; purely one-off contact may not be enough",
+      "source": "https://indiacode.gov.in/act/4bb3e636-ed67-4731-8fb1-7ebfd83e1584/sections",
+      "secondary_source": "https://devgan.in/bns/section/78/",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "BNS-79",
       "act": "Bharatiya Nyaya Sanhita, 2023",
       "section": "79",
-      "title": "Word, gesture or act intended to insult the modesty of a woman",
+      "title": "Word, gesture or act intended to insult modesty of a woman",
       "ipc_equivalent": "509",
       "summary": "Saying any word, making any sound or gesture, or exhibiting any object, intending that a woman hear or see it and that it insult her modesty, or intruding upon her privacy.",
       "punishment": "Simple imprisonment up to 3 years and fine.",
-      "keywords": ["slut", "abusive", "vulgar", "insult", "obscene words", "lewd", "gaali", "slur"],
-      "categories": ["harassment"],
+      "keywords": [
+        "slut",
+        "abusive",
+        "vulgar",
+        "insult",
+        "obscene words",
+        "lewd",
+        "gaali",
+        "slur"
+      ],
+      "categories": [
+        "harassment"
+      ],
       "online_applicability": "high: sexual slurs and vulgar messages sent to her",
-      "source": "https://devgan.in/bns/section/79/",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/4bb3e636-ed67-4731-8fb1-7ebfd83e1584/sections",
+      "secondary_source": "https://devgan.in/bns/section/79/",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "BNS-124",
       "act": "Bharatiya Nyaya Sanhita, 2023",
       "section": "124",
-      "title": "Voluntarily causing grievous hurt by use of acid, and attempting to throw acid",
+      "title": "Voluntarily causing grievous hurt by use of acid, etc.",
       "ipc_equivalent": "326A, 326B",
       "summary": "Causing permanent or partial damage, deformity or burns by throwing or administering acid (124(1)), or throwing or attempting to throw acid with that intention (124(2)).",
       "punishment": "124(1): at least 10 years, up to life, and fine; 124(2): 5 to 7 years and fine.",
-      "keywords": ["acid", "acid attack", "throw acid", "tezaab"],
-      "categories": ["threat_of_violence"],
+      "keywords": [
+        "acid",
+        "acid attack",
+        "throw acid",
+        "tezaab"
+      ],
+      "categories": [
+        "threat_of_violence"
+      ],
       "online_applicability": "low: needs an actual attack or attempt; a threat to throw acid is criminal intimidation (BNS 351(3)), not this section",
-      "source": "https://devgan.in/bns/section/124/",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/4bb3e636-ed67-4731-8fb1-7ebfd83e1584/sections",
+      "secondary_source": "https://devgan.in/bns/section/124/",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "BNS-308",
@@ -92,12 +179,28 @@
       "title": "Extortion",
       "ipc_equivalent": "383-389",
       "summary": "Intentionally putting a person in fear of injury (including injury to reputation) and so dishonestly inducing them to deliver property or money. Putting someone in fear in order to commit extortion is itself punishable (308(3)).",
-      "punishment": "308(2): up to 7 years, or fine, or both; 308(3) attempt by putting in fear: up to 2 years; higher where the fear is of death or grievous hurt (308(5)).",
-      "keywords": ["pay or else", "send money", "paise bhej", "warna", "demand money", "UPI", "blackmail for money", "extortion", "ransom"],
-      "categories": ["sextortion_blackmail", "scam"],
+      "punishment": "308(2): up to 7 years, or fine, or both; 308(3) putting in fear of injury to extort: up to 2 years, or fine, or both; 308(4) putting in fear of death or grievous hurt to extort: up to 7 years and fine; 308(5) extortion by fear of death or grievous hurt: up to 10 years and fine.",
+      "keywords": [
+        "pay or else",
+        "send money",
+        "paise bhej",
+        "warna",
+        "demand money",
+        "UPI",
+        "blackmail for money",
+        "extortion",
+        "ransom"
+      ],
+      "categories": [
+        "sextortion_blackmail",
+        "scam"
+      ],
       "online_applicability": "high: demanding money under threat of leaking images or other harm",
-      "source": "https://devgan.in/bns/section/308/",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/4bb3e636-ed67-4731-8fb1-7ebfd83e1584/sections",
+      "secondary_source": "https://devgan.in/bns/section/308/",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "BNS-318",
@@ -107,11 +210,27 @@
       "ipc_equivalent": "415, 417, 420",
       "summary": "Deceiving a person and dishonestly inducing them to deliver property or do something they would not otherwise do, causing harm. Cheating that induces delivery of property is punishable more heavily (318(4)).",
       "punishment": "318(2): up to 3 years, or fine, or both; 318(4): up to 7 years and fine.",
-      "keywords": ["fraud", "scam", "OTP", "KYC", "fake link", "lottery", "job offer", "refund", "money lost", "phishing"],
-      "categories": ["scam"],
+      "keywords": [
+        "fraud",
+        "scam",
+        "OTP",
+        "KYC",
+        "fake link",
+        "lottery",
+        "job offer",
+        "refund",
+        "money lost",
+        "phishing"
+      ],
+      "categories": [
+        "scam"
+      ],
       "online_applicability": "high for online fraud that tricks her into paying or sharing banking details",
-      "source": "https://devgan.in/bns/section/318/",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/4bb3e636-ed67-4731-8fb1-7ebfd83e1584/sections",
+      "secondary_source": "https://devgan.in/bns/section/318/",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "BNS-319",
@@ -121,25 +240,52 @@
       "ipc_equivalent": "416, 419",
       "summary": "Cheating by pretending to be some other person, real or imaginary, or by knowingly substituting one person for another.",
       "punishment": "319(2): up to 5 years, or fine, or both.",
-      "keywords": ["pretending to be", "fake profile", "posing as", "impersonating", "bank officer", "police officer", "fake account in her name"],
-      "categories": ["impersonation", "scam"],
+      "keywords": [
+        "pretending to be",
+        "fake profile",
+        "posing as",
+        "impersonating",
+        "bank officer",
+        "police officer",
+        "fake account in her name"
+      ],
+      "categories": [
+        "impersonation",
+        "scam"
+      ],
       "online_applicability": "high when someone poses as her or as an official to cheat others",
-      "source": "https://devgan.in/bns/section/319/",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/4bb3e636-ed67-4731-8fb1-7ebfd83e1584/sections",
+      "secondary_source": "https://devgan.in/bns/section/319/",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "BNS-336",
       "act": "Bharatiya Nyaya Sanhita, 2023",
       "section": "336",
-      "title": "Forgery (including forgery for harming reputation)",
+      "title": "Forgery",
       "ipc_equivalent": "463-469",
-      "summary": "Making a false document or false electronic record with intent to cause damage or injury, or to commit fraud. 336(4) covers forgery intended to harm a person's reputation.",
+      "summary": "Making a false document or false electronic record with intent to cause damage or injury, or to commit fraud. 336(4) covers forgery intended to harm a person's reputation, for example a morphed image or fake chat made to damage her name.",
       "punishment": "336(2): up to 2 years, or fine, or both; 336(4) for harming reputation: up to 3 years and fine.",
-      "keywords": ["morphed photo", "edited picture", "fake document", "fake screenshot", "forged", "fake chat"],
-      "categories": ["impersonation", "sextortion_blackmail"],
+      "keywords": [
+        "morphed photo",
+        "edited picture",
+        "fake document",
+        "fake screenshot",
+        "forged",
+        "fake chat"
+      ],
+      "categories": [
+        "impersonation",
+        "sextortion_blackmail"
+      ],
       "online_applicability": "medium: morphed images or fake electronic records made to damage her reputation",
-      "source": "https://devgan.in/bns/section/336/",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/4bb3e636-ed67-4731-8fb1-7ebfd83e1584/sections",
+      "secondary_source": "https://devgan.in/bns/section/336/",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "BNS-351",
@@ -149,11 +295,33 @@
       "ipc_equivalent": "503, 506, 507",
       "summary": "Threatening a person with injury to their body, reputation or property, or to someone they care about, to cause alarm or to make them do or stop doing something. 351(3) is the aggravated form: threats of death or grievous hurt, or to impute unchastity to a woman. 351(4) adds punishment when the threat is anonymous or the sender hides their identity.",
       "punishment": "351(2): up to 2 years, or fine, or both; 351(3): up to 7 years, or fine, or both; 351(4): up to 2 years in addition.",
-      "keywords": ["threat", "kill", "maar dunga", "jaan se maar", "kolthini", "acid", "you will regret", "dekh lunga", "anonymous account", "fake account threat", "defame", "tell your family", "ruin your reputation"],
-      "categories": ["threat_of_violence", "sextortion_blackmail", "stalking", "harassment"],
+      "keywords": [
+        "threat",
+        "kill",
+        "maar dunga",
+        "jaan se maar",
+        "kolthini",
+        "acid",
+        "you will regret",
+        "dekh lunga",
+        "anonymous account",
+        "fake account threat",
+        "defame",
+        "tell your family",
+        "ruin your reputation"
+      ],
+      "categories": [
+        "threat_of_violence",
+        "sextortion_blackmail",
+        "stalking",
+        "harassment"
+      ],
       "online_applicability": "high: threats of harm or to expose her made over chat, including from fake or anonymous accounts",
-      "source": "https://devgan.in/bns/section/351/",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/4bb3e636-ed67-4731-8fb1-7ebfd83e1584/sections",
+      "secondary_source": "https://devgan.in/bns/section/351/",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "BNS-356",
@@ -163,11 +331,24 @@
       "ipc_equivalent": "499, 500",
       "summary": "Making or publishing an imputation about a person, by words, signs or visible representations, intending to harm their reputation or knowing it is likely to.",
       "punishment": "Simple imprisonment up to 2 years, or fine, or both, or community service.",
-      "keywords": ["posted about me", "spreading rumours", "defaming", "reputation", "character assassination", "told everyone"],
-      "categories": ["impersonation", "harassment"],
+      "keywords": [
+        "posted about me",
+        "spreading rumours",
+        "defaming",
+        "reputation",
+        "character assassination",
+        "told everyone"
+      ],
+      "categories": [
+        "impersonation",
+        "harassment"
+      ],
       "online_applicability": "medium: when false or damaging claims about her were actually published to others",
-      "source": "https://devgan.in/bns/section/356/",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/4bb3e636-ed67-4731-8fb1-7ebfd83e1584/sections",
+      "secondary_source": "https://devgan.in/bns/section/356/",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "BNS-352",
@@ -177,11 +358,21 @@
       "ipc_equivalent": "504",
       "summary": "Intentionally insulting a person, intending or knowing it is likely to provoke them to break the public peace or commit another offence.",
       "punishment": "Up to 2 years, or fine, or both.",
-      "keywords": ["insult", "abuse", "provoke", "gaali"],
-      "categories": ["harassment"],
+      "keywords": [
+        "insult",
+        "abuse",
+        "provoke",
+        "gaali"
+      ],
+      "categories": [
+        "harassment"
+      ],
       "online_applicability": "low: usually weaker than BNS 79 for sexualised abuse of a woman",
-      "source": "https://devgan.in/bns/section/352/",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/4bb3e636-ed67-4731-8fb1-7ebfd83e1584/sections",
+      "secondary_source": "https://devgan.in/bns/section/352/",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "ITA-66",
@@ -191,11 +382,23 @@
       "ipc_equivalent": null,
       "summary": "Dishonestly or fraudulently doing any act referred to in section 43, such as accessing a computer, account or device without permission, or downloading, damaging or deleting data.",
       "punishment": "Up to 3 years, or fine up to 5 lakh rupees, or both.",
-      "keywords": ["hacked", "account hacked", "password", "logged into my account", "accessed my phone", "unauthorised access"],
-      "categories": ["impersonation", "scam"],
+      "keywords": [
+        "hacked",
+        "account hacked",
+        "password",
+        "logged into my account",
+        "accessed my phone",
+        "unauthorised access"
+      ],
+      "categories": [
+        "impersonation",
+        "scam"
+      ],
       "online_applicability": "medium: when her account or device was accessed without permission",
-      "source": "https://www.indiacode.nic.in/handle/123456789/1999",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/d41fe391-b9c0-40b1-afdc-ad034c7ac62f/sections",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "ITA-66C",
@@ -205,11 +408,22 @@
       "ipc_equivalent": null,
       "summary": "Fraudulently or dishonestly using another person's electronic signature, password or any other unique identification feature.",
       "punishment": "Up to 3 years and fine up to 1 lakh rupees.",
-      "keywords": ["identity theft", "using my photos", "my name", "my password", "fake profile with my pictures", "DP"],
-      "categories": ["impersonation"],
+      "keywords": [
+        "identity theft",
+        "using my photos",
+        "my name",
+        "my password",
+        "fake profile with my pictures",
+        "DP"
+      ],
+      "categories": [
+        "impersonation"
+      ],
       "online_applicability": "high: a fake profile using her photos, name or login",
-      "source": "https://www.indiacode.nic.in/handle/123456789/1999",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/d41fe391-b9c0-40b1-afdc-ad034c7ac62f/sections",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "ITA-66D",
@@ -219,11 +433,23 @@
       "ipc_equivalent": null,
       "summary": "Cheating by personation using any communication device or computer resource.",
       "punishment": "Up to 3 years and fine up to 1 lakh rupees.",
-      "keywords": ["fake profile asking money", "impersonation online", "pretending to be bank", "fake officer", "digital arrest", "posing as me"],
-      "categories": ["impersonation", "scam"],
+      "keywords": [
+        "fake profile asking money",
+        "impersonation online",
+        "pretending to be bank",
+        "fake officer",
+        "digital arrest",
+        "posing as me"
+      ],
+      "categories": [
+        "impersonation",
+        "scam"
+      ],
       "online_applicability": "high: online impersonation used to cheat her or others",
-      "source": "https://www.indiacode.nic.in/handle/123456789/1999",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/d41fe391-b9c0-40b1-afdc-ad034c7ac62f/sections",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "ITA-66E",
@@ -233,11 +459,22 @@
       "ipc_equivalent": null,
       "summary": "Intentionally or knowingly capturing, publishing or transmitting the image of a private area of any person without consent, in circumstances violating their privacy.",
       "punishment": "Up to 3 years, or fine up to 2 lakh rupees, or both.",
-      "keywords": ["private pictures", "intimate images", "leaked", "shared my photos", "nude", "recorded without consent"],
-      "categories": ["sextortion_blackmail"],
+      "keywords": [
+        "private pictures",
+        "intimate images",
+        "leaked",
+        "shared my photos",
+        "nude",
+        "recorded without consent"
+      ],
+      "categories": [
+        "sextortion_blackmail"
+      ],
       "online_applicability": "high when intimate images were captured, published or sent without consent",
-      "source": "https://www.indiacode.nic.in/handle/123456789/1999",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/d41fe391-b9c0-40b1-afdc-ad034c7ac62f/sections",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "ITA-67",
@@ -247,25 +484,45 @@
       "ipc_equivalent": null,
       "summary": "Publishing or transmitting, or causing to be published or transmitted, in electronic form any material that is lascivious or appeals to the prurient interest.",
       "punishment": "First conviction up to 3 years and fine up to 5 lakh rupees; subsequent conviction up to 5 years and fine up to 10 lakh rupees.",
-      "keywords": ["obscene messages", "vulgar pictures", "sent porn", "dirty messages", "lewd"],
-      "categories": ["harassment", "sextortion_blackmail"],
+      "keywords": [
+        "obscene messages",
+        "vulgar pictures",
+        "sent porn",
+        "dirty messages",
+        "lewd"
+      ],
+      "categories": [
+        "harassment",
+        "sextortion_blackmail"
+      ],
       "online_applicability": "medium: obscene content sent to her or posted online",
-      "source": "https://www.indiacode.nic.in/handle/123456789/1999",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/d41fe391-b9c0-40b1-afdc-ad034c7ac62f/sections",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     },
     {
       "id": "ITA-67A",
       "act": "Information Technology Act, 2000",
       "section": "67A",
-      "title": "Punishment for publishing or transmitting material containing sexually explicit act in electronic form",
+      "title": "Punishment for publishing or transmitting of material containing sexually explicit act, etc., in electronic form",
       "ipc_equivalent": null,
       "summary": "Publishing or transmitting in electronic form any material containing a sexually explicit act or conduct.",
       "punishment": "First conviction up to 5 years and fine up to 10 lakh rupees; subsequent conviction up to 7 years and fine up to 10 lakh rupees.",
-      "keywords": ["sexually explicit video", "leaked video", "posted video", "explicit images shared"],
-      "categories": ["sextortion_blackmail"],
+      "keywords": [
+        "sexually explicit video",
+        "leaked video",
+        "posted video",
+        "explicit images shared"
+      ],
+      "categories": [
+        "sextortion_blackmail"
+      ],
       "online_applicability": "high only when sexually explicit material was actually published or sent",
-      "source": "https://www.indiacode.nic.in/handle/123456789/1999",
-      "verified": false
+      "source": "https://indiacode.gov.in/act/d41fe391-b9c0-40b1-afdc-ad034c7ac62f/sections",
+      "verified": true,
+      "verified_on": "2026-10-16",
+      "verified_how": "Number, title and punishment compared with the section text published on India Code (indiacode.gov.in) by Claude; spot-check before relying on it in court."
     }
   ]
 }
