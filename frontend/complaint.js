@@ -78,6 +78,7 @@
   async function open(captureId, title) {
     window.kavachImport?.close();
     window.kavachVault?.close();
+    window.kavachSos?.close();
     isOpen = true;
     document.body.classList.add("complaining");
     els.view.hidden = false;

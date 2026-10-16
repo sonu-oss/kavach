@@ -94,6 +94,7 @@
     window.kavachImport?.close();
     window.kavachVault?.close();
     window.kavachComplaint?.close();
+    window.kavachSos?.close();
     activeId = id;
     renderContacts();
     renderChat();

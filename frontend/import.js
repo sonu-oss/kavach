@@ -48,6 +48,7 @@
     if (isOpen) return;
     window.kavachVault?.close();
     window.kavachComplaint?.close();
+    window.kavachSos?.close();
     isOpen = true;
     rows = [];
     images = [];

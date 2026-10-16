@@ -154,6 +154,7 @@
   async function open() {
     window.kavachImport?.close();
     window.kavachComplaint?.close();
+    window.kavachSos?.close();
     isOpen = true;
     document.body.classList.add("vaulting");
     els.view.hidden = false;

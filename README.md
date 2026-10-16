@@ -32,6 +32,44 @@ Click **Scan a screenshot** (or just press ⌘V / Ctrl+V with a screenshot on th
 
 `frontend/samples/` holds two test screenshots: Hinglish in light mode and Kannada-English in dark mode. Load them with **Try a sample**. The first time, the text reader downloads about 10 MB of language data from a CDN, so do one run before the demo while online.
 
+## Features 4–5: Discreet SOS and Responder Network (prototypes)
+
+**Discreet SOS** (left sidebar → **Discreet SOS**): a fake incoming call from "Mom".
+- **Tap Decline:** an ordinary declined call.
+- **Press and hold Decline for 2 seconds** (or Shift+Enter): the screen looks exactly the same, a normal lock screen with "Missed call: Mom", but silently:
+  1. the location is read **once**, at that moment (demo location by default; switch to real GPS in Setup),
+  2. it's encrypted **in the browser** with the server's RSA-OAEP-256 public key (WebCrypto) and sent to `POST /sos`,
+  3. trusted contacts are "called" and get a private live-location link (calls/SMS are simulated),
+  4. verified, opted-in responders within 3 km are alerted with an **approximate 1 km area** only.
+- **Accept** shows a fake in-call screen: a believable excuse to walk away.
+- The right panel is the presenter's "behind the scenes" view; **I'm safe** stops all sharing.
+
+**Responder view** (`/responder.html`, sidebar → **Responder view**): Leaflet + OpenStreetMap. Pick who you're signed in as.
+
+| Responder | Gets the alert? |
+|---|---|
+| Asha K, Campus security desk, Meena R | Yes: verified, opted in, within 3 km |
+| Ravi T | No: ID not verified |
+| Kiran P | No: alerts turned off |
+| Farah N | No: 5.2 km away |
+
+Before accepting, a responder sees only a dashed 1 km circle. **Accept** reveals the exact pin and directions **to that responder alone**. Everyone else stays on the approximate view.
+
+**Live-location link** (`/track.html?t=…`): for trusted contacts. It shows her exact location, who's on the way, and a Call 112 button, and expires after 2 hours or as soon as she marks herself safe.
+
+**Abuse controls built in:** verified and opted-in responders only, a radius limit, approximate location until accept, and a rate limit of 3 new SOS per 10 minutes. Re-triggering an active SOS only updates it, so a person in danger is never blocked; the rate-limit message points to 112. Fake-alert reporting and suspension are roadmap.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /sos/key` | RSA-OAEP public key for encrypting the location |
+| `POST /sos` | Trigger (encrypted location + trusted contacts) |
+| `GET /sos/{id}` · `POST /sos/{id}/cancel` | Status · "I'm safe" |
+| `GET /sos/track/{token}` | Trusted contact's live link |
+| `GET /responders` · `GET /responders/{id}/alerts` · `POST /sos/{id}/respond` | Responder dashboard |
+| `POST /sos/demo/reset` | **Demo only**: clear SOS state and the rate limit |
+
+**Prototype limits:** SOS state is in memory (it resets when the server restarts), responders are mock data placed around the SOS point, calls and SMS are simulated, and there are no user accounts.
+
 ### Run
 
 ```bash
@@ -85,6 +123,10 @@ backend/app/vault/report.py      ReportLab PDF with Section 63 BSA certificate t
 backend/app/complaint/           Legal corpus, hybrid retrieval, rerank + draft + citation checker, complaint PDF
 backend/app/llm.py               Shared Groq JSON call with rate-limit fallback
 frontend/complaint.js            Complaint screen, her details, laws tab, cybercrime.gov.in hand-off
+frontend/sos.js                  Fake-call screen, hidden long-press, in-browser encryption, presenter panel
+frontend/track.html              Trusted contact's live-location page
+frontend/responder.html          Responder dashboard (Leaflet map, accept/decline)
+backend/app/sos/                 SOS service, responder matching, RSA key handling
 ```
 
 ## Feature 2: Evidence Vault (built)

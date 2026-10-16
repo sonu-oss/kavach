@@ -12,6 +12,9 @@ from app.complaint.drafting import ComplaintError, build_complaint
 from app.complaint.pdf import build_complaint_pdf
 from app.complaint.retrieval import corpus
 from app.complaint.schemas import ComplaintIn, ComplaintPdfIn
+from app.sos import crypto as sos_crypto
+from app.sos import service as sos
+from app.sos.schemas import RespondIn, SosIn
 from app.vault import report, store
 from app.vault.schemas import EvidenceIn, TamperIn
 
@@ -126,6 +129,72 @@ def complaint_pdf(body: ComplaintPdfIn):
 def legal_sections():
     """The whole corpus, so anyone can see exactly which laws the assistant is allowed to cite."""
     return {"sections": corpus()}
+
+
+# ---------- Discreet SOS + Responder Network (prototype) ----------
+
+DEMO_USER = "demo-user"  # no accounts in the prototype; real build: the signed-in user
+
+
+def _sos_call(fn, *args):
+    try:
+        return fn(*args)
+    except sos.SosError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+
+
+@app.get("/sos/key")
+def sos_key():
+    """RSA-OAEP public key the browser uses to encrypt her location before sending it."""
+    return {"alg": "RSA-OAEP-256", "spki": sos_crypto.public_key_spki_b64()}
+
+
+@app.post("/sos")
+def sos_trigger(body: SosIn):
+    try:
+        loc = sos_crypto.decrypt_location(body.ciphertext)
+    except Exception as exc:
+        raise HTTPException(400, "could not decrypt location") from exc
+    contacts = [c.model_dump() for c in body.trusted_contacts]
+    return _sos_call(sos.trigger, DEMO_USER, loc, contacts, body.trigger, body.location_source)
+
+
+@app.get("/sos/{sos_id}")
+def sos_status(sos_id: str):
+    return _sos_call(sos.status_for_victim, sos_id)
+
+
+@app.post("/sos/{sos_id}/cancel")
+def sos_cancel(sos_id: str):
+    return _sos_call(sos.cancel, sos_id)
+
+
+@app.get("/sos/track/{token}")
+def sos_track(token: str):
+    return _sos_call(sos.track, token)
+
+
+@app.get("/responders")
+def responders():
+    return {"responders": sos.list_responders(), "radius_m": sos.RADIUS_M}
+
+
+@app.get("/responders/{responder_id}/alerts")
+def responder_alerts(responder_id: str):
+    return {"alerts": _sos_call(sos.alerts_for, responder_id)}
+
+
+@app.post("/sos/{sos_id}/respond")
+def responder_respond(sos_id: str, body: RespondIn):
+    return _sos_call(sos.respond, sos_id, body.responder_id, body.action)
+
+
+@app.post("/sos/demo/reset")
+def sos_demo_reset():
+    if not config.DEMO_MODE:
+        raise HTTPException(403, "demo mode is off")
+    sos.reset()
+    return {"ok": True}
 
 
 # Mounted last so API routes take precedence over static files.
