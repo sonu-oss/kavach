@@ -93,6 +93,7 @@
   function openChat(id) {
     window.kavachImport?.close();
     window.kavachVault?.close();
+    window.kavachComplaint?.close();
     activeId = id;
     renderContacts();
     renderChat();
@@ -255,7 +256,7 @@
     // Hooks for Feature 2 (Evidence Vault) and Feature 3 (Complaint Assistant).
     if (action === "vault") saveToVault(e.target.closest("button"));
     if (action === "open-vault") window.kavachVault.open();
-    if (action === "complaint") toast("Complaint Assistant is coming in Feature 3.");
+    if (action === "complaint") draftComplaint(e.target.closest("button"));
   });
 
   els.scanBtn.addEventListener("click", scan);
@@ -284,6 +285,26 @@
       toast(`Couldn't save to Vault: ${err.message}`);
     }
     if (activeId === c.id) renderVerdict(r);
+  }
+
+  // A complaint is drafted from sealed evidence, so save to the Vault first if needed.
+  async function draftComplaint(button) {
+    const c = active();
+    const r = results[c.id];
+    if (!r) return;
+    if (!r.saved) {
+      button.disabled = true;
+      button.textContent = "Sealing evidence…";
+      try {
+        r.saved = await window.kavachVault.save(c, r, els.chatArea);
+        toast(`Evidence sealed first: ${r.saved.records} records`);
+      } catch (err) {
+        toast(`Couldn't seal evidence: ${err.message}`);
+        if (activeId === c.id) renderVerdict(r);
+        return;
+      }
+    }
+    window.kavachComplaint.open(r.saved.capture_id, c.name);
   }
 
   // Screenshot imports become ordinary conversations, so the panel, highlights and

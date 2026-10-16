@@ -33,6 +33,7 @@ _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 class Masker:
     counts: dict[str, int] = field(default_factory=dict)
     seen: dict[tuple[str, str], str] = field(default_factory=dict)
+    originals: dict[str, str] = field(default_factory=dict)  # token -> first original value
 
     @property
     def total(self) -> int:
@@ -51,4 +52,11 @@ class Masker:
         if key not in self.seen:
             self.counts[label] = self.counts.get(label, 0) + 1
             self.seen[key] = f"[{label}_{self.counts[label]}]"
+            self.originals[self.seen[key]] = value
         return self.seen[key]
+
+    def unmask(self, text: str) -> str:
+        """Put the real values back, for text that goes to the user rather than to the LLM."""
+        for token, value in self.originals.items():
+            text = text.replace(token, value)
+        return text

@@ -82,6 +82,9 @@ frontend/import.js               Screenshot import: on-device OCR, bubble → se
 frontend/vault.js                Save to Vault (html2canvas), Vault screen, Verify animation, demo controls
 backend/app/vault/store.py       SQLite store, hash chain, verification, demo tamper/reset
 backend/app/vault/report.py      ReportLab PDF with Section 63 BSA certificate template
+backend/app/complaint/           Legal corpus, hybrid retrieval, rerank + draft + citation checker, complaint PDF
+backend/app/llm.py               Shared Groq JSON call with rate-limit fallback
+frontend/complaint.js            Complaint screen, her details, laws tab, cybercrime.gov.in hand-off
 ```
 
 ## Feature 2: Evidence Vault (built)
@@ -111,4 +114,29 @@ panel ─► html2canvas capture of the whole chat (+ original screenshots, if i
 
 **Honest limit:** someone with full server access could rewrite the *entire* chain from the edited record onward. The defence is to publish the **chain head** (shown in the Vault and the PDF) somewhere outside Kavach at save time, for example sent to a trusted contact or emailed to herself. That's on the roadmap, together with encryption at rest.
 
-`window.kavach.results` holds the latest analysis for each chat. That is the hand-off point for **Draft Complaint** (Feature 3).
+## Feature 3: Complaint Assistant (built)
+
+Press **Draft Complaint** in the Shield panel (it seals the chat in the Vault first if needed) or **Draft complaint from this evidence** on a Vault capture.
+
+```
+sealed Vault capture ─► PII masked ─► hybrid retrieval over legal_corpus.json (top 8)
+   BM25 (keywords) + embeddings (fastembed bge-small, local) + threat-type prior, fused with RRF
+─► AI reranker scores each candidate 0-100 against the facts; only 40+ is cited, below 65 says "Consult a lawyer"
+─► AI drafts the complaint, allowed to cite ONLY those section ids
+─► citation checker strips any other section or act it mentions (including IPC numbers) and reports them
+─► letter + evidence list with SHA-256 seals + cybercrime.gov.in hand-off
+```
+
+| Endpoint | What it does |
+|---|---|
+| `POST /complaint` `{capture_id}` | Draft from sealed evidence: sections with confidence, removed citations, retrieval trace, portal fields |
+| `POST /complaint/pdf` | Her edited letter as a PDF with an annex of cited sections and the evidence chain head |
+| `GET /legal/sections` | The whole corpus the assistant is allowed to cite |
+
+**Privacy:** her name, phone, email and address live only in her browser (localStorage) and are filled into the letter there. The AI sees masked chat text only.
+
+**The cybercrime.gov.in hand-off** (the **File the report** tab): 112, 1930 and 181 call buttons, the suggested category route, the incident date, platform, a portal-safe description (at least 200 characters, none of the characters the portal rejects), suspect identifiers pulled from the chat (handle, UPI ID, phone, email, links), and the evidence PDF to upload. Kavach can't submit for her: the portal needs her own OTP login.
+
+**Legal corpus** (`backend/app/complaint/legal_corpus.json`): 13 BNS 2023 and 6 IT Act 2000 sections, written as plain-language summaries with source links. **Before the demo, check every section number, title and punishment against indiacode.nic.in and set `"verified": true`.** The UI shows "Not yet checked against the official Gazette" until then. Some sections are there on purpose so the reranker can reject them; for example, BNS 124 (acid attack) must not be cited for a *threat* to throw acid.
+
+**First run:** the embedding model (~130 MB) downloads to `backend/data/models/`. Without internet, retrieval falls back to BM25 plus the threat-type prior. If Groq is down, a template draft is produced with every section marked "consult a lawyer".

@@ -8,6 +8,10 @@ from fastapi.staticfiles import StaticFiles
 from app import config
 from app.schemas import AnalyzeRequest, AnalyzeResponse
 from app.shield.classifier import analyze
+from app.complaint.drafting import ComplaintError, build_complaint
+from app.complaint.pdf import build_complaint_pdf
+from app.complaint.retrieval import corpus
+from app.complaint.schemas import ComplaintIn, ComplaintPdfIn
 from app.vault import report, store
 from app.vault.schemas import EvidenceIn, TamperIn
 
@@ -17,6 +21,14 @@ app = FastAPI(title="Kavach AI", version="0.1.0")
 
 # Lets a browser extension or a separately served frontend call the API during the demo.
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+@app.middleware("http")
+async def revalidate_static(request, call_next):
+    # Without this, browsers heuristically cache app.js etc. and keep showing an old build.
+    response = await call_next(request)
+    response.headers.setdefault("Cache-Control", "no-cache")
+    return response
 
 
 @app.get("/health")
@@ -89,6 +101,31 @@ def demo_reset():
         raise HTTPException(403, "demo mode is off")
     store.demo_reset()
     return {"ok": True}
+
+
+# ---------- Complaint Assistant ----------
+
+@app.post("/complaint")
+async def draft_complaint(body: ComplaintIn):
+    try:
+        return await build_complaint(body.capture_id)
+    except ComplaintError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@app.post("/complaint/pdf")
+def complaint_pdf(body: ComplaintPdfIn):
+    return Response(
+        build_complaint_pdf(body),
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="kavach-complaint.pdf"'},
+    )
+
+
+@app.get("/legal/sections")
+def legal_sections():
+    """The whole corpus, so anyone can see exactly which laws the assistant is allowed to cite."""
+    return {"sections": corpus()}
 
 
 # Mounted last so API routes take precedence over static files.

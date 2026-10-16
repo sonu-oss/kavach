@@ -45,6 +45,7 @@
   function open() {
     if (isOpen) return;
     window.kavachVault?.close();
+    window.kavachComplaint?.close();
     isOpen = true;
     rows = [];
     images = [];

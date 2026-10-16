@@ -115,6 +115,36 @@
         </div>
         <div id="vault-body" class="vault__body"></div>
       </section>
+
+      <!-- Complaint Assistant: drafted letter the victim can edit, copy or export -->
+      <section id="complaint-view" class="complaint" hidden>
+        <header class="vault__head">
+          <div>
+            <div class="chat__name">Complaint draft</div>
+            <div class="muted small" id="complaint-sub"></div>
+          </div>
+          <span id="complaint-pill" class="chain-pill">…</span>
+        </header>
+        <div class="vault__toolbar">
+          <button id="copy-letter" type="button" class="btn">Copy letter</button>
+          <button id="letter-pdf" type="button" class="btn">Download PDF</button>
+          <button id="file-report" type="button" class="btn btn--primary">Report on cybercrime.gov.in</button>
+        </div>
+        <div class="complaint__body" id="complaint-body">
+          <details class="details-card" id="my-details">
+            <summary><strong>Your details</strong> <span class="muted small">Stay in this browser. Never sent to the AI.</span></summary>
+            <div class="details-grid">
+              <label>Full name<input data-field="name" autocomplete="name" /></label>
+              <label>Phone<input data-field="phone" autocomplete="tel" /></label>
+              <label>Email<input data-field="email" autocomplete="email" /></label>
+              <label>City / district<input data-field="city" autocomplete="address-level2" /></label>
+              <label class="wide">Address<input data-field="address" autocomplete="street-address" /></label>
+            </div>
+          </details>
+          <div id="complaint-loading" class="loading" hidden><div class="spinner"></div><span id="complaint-status">Finding the laws that apply…</span></div>
+          <textarea id="letter" class="letter" spellcheck="true" aria-label="Complaint letter"></textarea>
+        </div>
+      </section>
     </main>
 
     <!-- Kavach Smart Shield side panel -->
@@ -153,5 +183,6 @@
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
   <script src="import.js"></script>
   <script src="vault.js"></script>
+  <script src="complaint.js"></script>
 </body>
 </html>

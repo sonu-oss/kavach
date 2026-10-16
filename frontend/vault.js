@@ -151,6 +151,7 @@
   // ---------- screen ----------
   async function open() {
     window.kavachImport?.close();
+    window.kavachComplaint?.close();
     isOpen = true;
     document.body.classList.add("vaulting");
     els.view.hidden = false;
@@ -209,6 +210,7 @@
       </header>
       ${shots.length ? `<div class="capture__shots">${shots.map(renderShot).join("")}</div>` : ""}
       <ol class="records">${msgs.map(renderRecord).join("")}</ol>
+      ${a && a.severity !== "low" ? `<div class="capture__actions"><button type="button" class="btn" data-complaint="${esc(first.capture_id)}" data-title="${esc(first.conversation)}">Draft complaint from this evidence</button></div>` : ""}
     </article>`;
   }
 
@@ -335,6 +337,11 @@
     } catch (err) {
       window.kavach.toast(err.message);
     }
+  });
+
+  els.body.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-complaint]");
+    if (b) window.kavachComplaint.open(b.dataset.complaint, b.dataset.title);
   });
 
   els.btn.addEventListener("click", open);

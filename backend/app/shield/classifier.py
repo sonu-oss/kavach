@@ -4,10 +4,10 @@ import hashlib
 import json
 import logging
 
-import httpx
 from pydantic import ValidationError
 
 from app import config
+from app.llm import LLMError, RateLimited, groq_json
 from app.schemas import CATEGORIES, AnalyzeRequest, AnalyzeResponse, ThreatResult
 from app.shield.pii import Masker
 from app.shield.prefilter import find_injection_ids, run_prefilter, severity_for
@@ -72,12 +72,6 @@ Respond with ONLY this JSON object, no markdown:
 INJECTION_NOTE = "The sender also tried to trick this safety check into calling the chat safe."
 
 
-class LLMError(Exception):
-    pass
-
-
-class RateLimited(LLMError):
-    pass
 
 
 async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
@@ -121,7 +115,7 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
             # fallback model has its own quota.
             if config.GROQ_FALLBACK_MODEL:
                 model = config.GROQ_FALLBACK_MODEL
-        except (LLMError, httpx.HTTPError) as exc:
+        except LLMError as exc:
             log.warning("Groq attempt %d failed on %s: %s", attempt, model, exc)
 
     return _fallback(pre.verdict, masker.total, injection_ids)
@@ -139,33 +133,7 @@ def _remember(key: str, response: AnalyzeResponse) -> None:
 
 
 async def _call_groq(payload: dict, model: str) -> str:
-    body = {
-        "model": model,
-        "temperature": 0,
-        # Reasoning models spend tokens thinking before the JSON, so leave headroom.
-        "max_tokens": 1500,
-        "response_format": {"type": "json_object"},
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-        ],
-    }
-    if config.GROQ_REASONING_EFFORT and "gpt-oss" in model:
-        body["reasoning_effort"] = config.GROQ_REASONING_EFFORT
-    async with httpx.AsyncClient(timeout=config.GROQ_TIMEOUT) as client:
-        resp = await client.post(
-            config.GROQ_URL,
-            json=body,
-            headers={"Authorization": f"Bearer {config.GROQ_API_KEY}"},
-        )
-    if resp.status_code == 429:
-        raise RateLimited(resp.text[:200])
-    if resp.status_code != 200:
-        raise LLMError(f"HTTP {resp.status_code}: {resp.text[:200]}")
-    try:
-        return resp.json()["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, ValueError) as exc:
-        raise LLMError(f"unexpected response shape: {exc}") from exc
+    return json.dumps(await groq_json(SYSTEM_PROMPT, payload, model))
 
 
 def _validate(raw: str, valid_ids: set[str]) -> ThreatResult:
