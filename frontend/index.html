@@ -23,23 +23,31 @@
     <span class="nav-status" id="nav-status">Prototype</span>
   </header>
 
+  <!-- Where she is in the main flow -->
+  <ol class="flowbar" id="flowbar" aria-label="Steps">
+    <li data-step="1">Scan</li>
+    <li data-step="2">Check</li>
+    <li data-step="3">Seal</li>
+    <li data-step="4">Report</li>
+  </ol>
+
   <!-- Home: one message, one main action -->
   <section class="home" id="home">
     <div class="home__orb" aria-hidden="true"></div>
     <div class="home__hero">
       <p class="eyebrow">Online safety for women · India</p>
       <h1>Detect the threat.<br />Preserve the proof.</h1>
-      <p class="home__sub">Kavach reads a harassing chat, seals it as tamper-proof evidence, drafts the police complaint, and gets help, quietly.</p>
+      <p class="home__sub">Scan the chat. Seal the proof. File the complaint.</p>
       <div class="home__cta">
         <button class="btn btn--primary btn--lg" data-go="scan" type="button">Scan a chat screenshot <span aria-hidden="true">›</span></button>
         <button class="btn btn--lg" data-go="shield" type="button">Try the demo chats</button>
       </div>
     </div>
     <ol class="home__tiles">
-      <li data-go="shield"><span class="tile__no">01</span><strong>Shield</strong><span>AI flags harassment, threats, sextortion and scams, in English, Hinglish and Kannada.</span></li>
-      <li data-go="vault"><span class="tile__no">02</span><strong>Vault</strong><span>Every message sealed with SHA-256. Edit one and the chain breaks.</span></li>
-      <li data-go="shield"><span class="tile__no">03</span><strong>Report</strong><span>A complaint citing real BNS and IT Act sections, ready for cybercrime.gov.in.</span></li>
-      <li data-go="sos"><span class="tile__no">04</span><strong>SOS</strong><span>A fake call that silently alerts trusted contacts and nearby volunteers.</span></li>
+      <li data-go="scan"><span class="tile__no">01</span><strong>Scan</strong><span>Spot threats in any chat</span></li>
+      <li data-go="vault"><span class="tile__no">02</span><strong>Seal</strong><span>Tamper-proof evidence</span></li>
+      <li data-go="shield"><span class="tile__no">03</span><strong>Report</strong><span>Complaint for cybercrime.gov.in</span></li>
+      <li data-go="sos" class="tile--sos"><span class="tile__no">In danger?</span><strong>SOS</strong><span>Silent alert via a fake call</span></li>
     </ol>
   </section>
 
@@ -77,7 +85,7 @@
           <option value="them">Them</option>
         </select>
         <input id="composer-input" autocomplete="off" placeholder="Type a message… (switch to “Them” to simulate the sender)" />
-        <button type="submit" class="btn btn--primary">Send</button>
+        <button type="submit" class="btn">Send</button>
       </form>
 
       <!-- Screenshot import: the victim pastes a real chat screenshot; OCR runs in this browser -->
@@ -85,19 +93,19 @@
         <header class="import__head">
           <div>
             <div class="chat__name">Scan a chat screenshot</div>
-            <div class="muted small">Text is read on this device. The image is never uploaded.</div>
+            <div class="muted small">Read on your device. Never uploaded.</div>
           </div>
         </header>
 
         <div class="import__body">
           <div id="dropzone" class="dropzone" tabindex="0">
             <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path fill="currentColor" d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Zm0 16H5V5h14v14Zm-5-7-3 3.72L9 13l-3 4h12l-4-5Z"/></svg>
-            <p><strong>Paste a screenshot</strong> (⌘V / Ctrl+V), drop it here, or</p>
+            <p><strong>Paste</strong> (⌘V), drop, or</p>
             <div class="dropzone__actions">
               <label class="btn btn--primary">Choose image<input id="file-input" type="file" accept="image/*" multiple hidden /></label>
               <button id="sample-btn" type="button" class="btn">Try a sample</button>
             </div>
-            <p class="muted tiny">Long chat? Add several screenshots in order, top to bottom.</p>
+            <p class="muted tiny">Long chat? Add screenshots in order.</p>
           </div>
 
           <div id="ocr-progress" class="ocr-progress" hidden>
@@ -133,13 +141,14 @@
                 <input id="incident-date" type="date" />
               </label>
             </div>
-            <p class="muted tiny">Tap <em>Them / You</em> to fix who sent a message. Edit any text that was misread.</p>
+            <p class="muted tiny">Tap <em>Them / You</em> to fix the sender.</p>
             <ol id="review-list" class="review__list"></ol>
             <button id="add-row" type="button" class="btn btn--ghost small">+ Add a message</button>
           </div>
         </div>
 
         <footer class="import__foot">
+          <button id="import-hint" type="button" class="import-hint" hidden></button>
           <button id="import-cancel" type="button" class="btn">Cancel</button>
           <button id="import-scan" type="button" class="btn btn--primary" disabled>Scan with Kavach</button>
         </footer>
@@ -150,12 +159,12 @@
         <header class="vault__head">
           <div>
             <div class="chat__name">Evidence Vault</div>
-            <div class="muted small">Every saved message is sealed with SHA-256 and chained to the one before it.</div>
+            <div class="muted small">Tamper-proof. Edit one message and the chain breaks.</div>
           </div>
           <span id="chain-pill" class="chain-pill">…</span>
         </header>
         <div class="vault__toolbar">
-          <button id="verify-btn" type="button" class="btn btn--primary">Verify chain</button>
+          <button id="verify-btn" type="button" class="btn">Verify chain</button>
           <a id="report-btn" class="btn" href="/evidence/report" download="kavach-evidence-report.pdf">Export PDF report</a>
         </div>
         <div id="vault-body" class="vault__body"></div>
@@ -177,7 +186,7 @@
         </div>
         <div class="complaint__body" id="complaint-body">
           <details class="details-card" id="my-details">
-            <summary><strong>Your details</strong> <span class="muted small">Stay in this browser. Never sent to the AI.</span></summary>
+            <summary><strong>Your details</strong> <span class="muted small">Stays on this device</span></summary>
             <div class="details-grid">
               <label>Full name<input data-field="name" autocomplete="name" /></label>
               <label>Phone<input data-field="phone" autocomplete="tel" /></label>
@@ -244,12 +253,12 @@
 
           <div class="sos-side">
             <ol class="how-steps">
-              <li><strong>She feels unsafe</strong><span>Followed, in a cab going the wrong way, or the harasser is next to her. Calling police openly could make it worse.</span></li>
-              <li><strong>A fake call from "Mom"</strong><span>Anyone watching just sees an ordinary incoming call.</span></li>
-              <li><strong>Hold Decline for 2 seconds</strong><span>It looks like a declined call, but SOS goes out silently. A quick tap just declines. Accept gives her an excuse to leave.</span></li>
+              <li><strong>Feel unsafe?</strong><span>Can't call for help openly.</span></li>
+              <li><strong>"Mom" calls</strong><span>Looks normal to anyone watching.</span></li>
+              <li><strong>Hold Decline 2 s</strong><span>SOS sent silently. A tap just declines.</span></li>
             </ol>
             <button id="ring-btn" type="button" class="btn btn--primary btn--block">📞 Ring the fake call</button>
-            <p class="note">In a real phone this would start from a home-screen shortcut or a triple-press of the power button.</p>
+            <p class="note">Real app: power-button shortcut.</p>
             <details class="details-card">
               <summary><strong>Setup</strong> <span class="muted small">Saved in this browser only</span></summary>
               <div class="details-grid">
@@ -277,7 +286,7 @@
         <div class="shield__brand">
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v6c0 5.25 3.4 10.15 8 11.5 4.6-1.35 8-6.25 8-11.5V5l-8-3Zm0 2.18 6 2.25V11c0 4.16-2.6 8.1-6 9.4-3.4-1.3-6-5.24-6-9.4V6.43l6-2.25Z"/></svg>
           <div>
-            <strong>Kavach Shield</strong>
+            <strong>Risk check</strong>
             <div class="muted small" id="llm-status">checking backend…</div>
           </div>
         </div>
@@ -293,8 +302,8 @@
       </div>
 
       <footer class="shield__foot">
-        <button id="scan-btn" class="btn btn--block">Scan this chat again</button>
-        <p class="muted tiny">Phone numbers, emails, UPI IDs and addresses are masked before anything is sent to the AI.</p>
+        <button id="scan-btn" class="btn btn--block">Scan again</button>
+        <p class="muted tiny">Personal details are masked before the AI sees anything.</p>
       </footer>
     </aside>
   </div>

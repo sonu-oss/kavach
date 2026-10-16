@@ -49,6 +49,18 @@
     setActive(null);
   });
 
+  // The Scan → Check → Seal → Report bar. Screens call kavachFlow.set(n) as she moves along.
+  const steps = [...document.querySelectorAll("#flowbar [data-step]")];
+  window.kavachFlow = {
+    set(n) {
+      steps.forEach((s) => {
+        const k = Number(s.dataset.step);
+        s.classList.toggle("done", k < n);
+        s.classList.toggle("current", k === n);
+      });
+    },
+  };
+
   // Picking a chat from the list (e.g. while in the Vault) means she is back in Shield.
   document.querySelector("#contact-list").addEventListener("click", () => setActive("shield"));
 

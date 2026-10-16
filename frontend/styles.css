@@ -743,3 +743,62 @@ body.at-home .app { display: none; }
   .contacts { border-right: none; border-bottom: 1px solid var(--border); }
   .shield { border-left: none; border-top: 1px solid var(--border); }
 }
+
+/* Disabled means "not yet", not "loading": grey, a not-allowed cursor, and a reason beside it. */
+.btn:disabled, .btn:disabled:hover { cursor: not-allowed; opacity: 1; border-color: var(--border); color: #5c5c5c; }
+.btn--primary:disabled, .btn--primary:disabled:hover { background: #1c1c1c; border-color: #1c1c1c; color: #5c5c5c; }
+.import__foot { align-items: center; }
+.import-hint {
+  margin-right: auto; background: none; border: none; cursor: pointer; padding: 6px 0;
+  font: 500 12px/1.3 var(--mono); letter-spacing: .04em; color: var(--risk-med); text-align: left;
+}
+.import-hint[hidden] { display: none; }
+.import-hint:hover { text-decoration: underline; }
+
+/* ---------- flow bar: Scan → Check → Seal → Report ---------- */
+:root { --flowbar: 44px; }
+.flowbar {
+  height: var(--flowbar); margin: 0; padding: 0 24px; list-style: none; counter-reset: flow;
+  display: flex; align-items: center; gap: 0; border-bottom: 1px solid var(--border); background: var(--bg);
+}
+.flowbar li {
+  counter-increment: flow; display: flex; align-items: center; gap: 8px; color: #5c5c5c;
+  font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase;
+}
+.flowbar li::before {
+  content: counter(flow); width: 20px; height: 20px; border-radius: 3px; display: grid; place-items: center;
+  border: 1px solid #333; font-size: 10px; letter-spacing: 0;
+}
+.flowbar li:not(:last-child)::after { content: ""; width: 48px; height: 1px; background: #2a2a2a; margin: 0 12px; }
+.flowbar li.done { color: var(--muted); }
+.flowbar li.done::before { content: "✓"; border-color: var(--risk-low); color: var(--risk-low); }
+.flowbar li.current { color: var(--text); }
+.flowbar li.current::before { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+body.at-home .flowbar, body.sosing .flowbar { display: none; }
+.app { height: calc(100vh - var(--topbar) - var(--flowbar)); }
+body.sosing .app { height: calc(100vh - var(--topbar)); }
+
+/* ---------- compact verdict ---------- */
+.reason { color: var(--text); }
+.flag-count {
+  align-self: flex-start; background: none; border: none; padding: 0; cursor: pointer;
+  font: 500 12px/1.4 var(--mono); color: var(--risk-high); letter-spacing: .02em;
+}
+.flag-count:hover { text-decoration: underline; }
+.done { margin: 0; font: 500 12px/1 var(--mono); color: var(--risk-low); letter-spacing: .06em; text-transform: uppercase; }
+.meta-line { margin: 0; font: 400 11px/1.4 var(--mono); color: #5c5c5c; }
+
+/* ---------- emergency numbers: one quiet row ---------- */
+.calls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.calls a {
+  display: flex; flex-direction: column; gap: 2px; padding: 9px 10px; text-decoration: none;
+  border: 1px solid var(--border); border-radius: 4px; color: var(--text);
+}
+.calls a:hover { border-color: var(--text); }
+.calls strong { font: 600 16px/1 var(--mono); }
+.calls span { font: 500 10px/1.2 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.calls .call--urgent { border-color: rgba(255, 77, 79, .45); }
+.calls .call--urgent strong { color: var(--risk-high); }
+.home__tiles .tile--sos .tile__no { color: var(--risk-high); }
+.warn-note { color: var(--risk-med); }
+.law__head { display: flex; flex-direction: column; gap: 2px; }

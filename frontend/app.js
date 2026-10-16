@@ -141,7 +141,8 @@
     if (!messages.length) return;
     const seq = ++scanSeq;
     els.scanBtn.disabled = true;
-    els.shield.innerHTML = `<div class="loading"><div class="spinner"></div>Scanning ${messages.length} messages…</div>`;
+    els.shield.innerHTML = `<div class="loading"><div class="spinner"></div>Checking ${messages.length} messages…</div>`;
+    window.kavachFlow?.set(2);
     clearHighlights();
 
     try {
@@ -165,7 +166,17 @@
   }
 
   function renderEmpty() {
-    els.shield.innerHTML = `<div class="empty"><p>Press <strong>Scan this chat</strong> to analyse it.</p></div>`;
+    window.kavachFlow?.set(1);
+    els.shield.innerHTML = `<div class="empty"><p>Press <strong>Scan</strong> to check this chat.</p></div>`;
+  }
+
+  // Tap-to-call emergency numbers, shown wherever she might need them.
+  function callsHtml() {
+    return `<div class="calls" aria-label="Emergency numbers">
+      <a href="tel:112" class="call--urgent"><strong>112</strong><span>Emergency</span></a>
+      <a href="tel:1930"><strong>1930</strong><span>Cyber crime</span></a>
+      <a href="tel:181"><strong>181</strong><span>Women</span></a>
+    </div>`;
   }
 
   function renderVerdict(r) {
@@ -193,33 +204,18 @@
           </div>
         </div>
 
-        <div>
-          <p class="section-title">Why</p>
-          <p class="reason">${esc(r.reason)}</p>
-        </div>
+        <p class="reason">${esc(r.reason)}</p>
 
-        ${flagged.length ? `
-        <div>
-          <p class="section-title">Flagged messages (${flagged.length})</p>
-          <ul class="flag-list">
-            ${flagged.map((id) => `<li data-jump="${esc(id)}">“${esc(byId[id].text)}”</li>`).join("")}
-          </ul>
-        </div>` : ""}
+        ${flagged.length ? `<button type="button" class="flag-count" data-jump="${esc(flagged[0])}">⚑ ${flagged.length} message${flagged.length === 1 ? "" : "s"} flagged in the chat</button>` : ""}
 
         ${risky ? `
-        <div class="actions">
-          ${r.saved
-            ? `<button class="btn btn--saved" data-action="open-vault" title="Capture ${esc(r.saved.capture_id)}">✓ Sealed in Vault</button>`
-            : `<button class="btn btn--primary" data-action="vault">Save to Vault</button>`}
-          <button class="btn" data-action="complaint">Draft Complaint</button>
-        </div>
-        <div class="helpline">In danger right now? Call <strong>112</strong>. Cyber-crime helpline <strong>1930</strong> ·
-          <a href="https://cybercrime.gov.in" target="_blank" rel="noopener">cybercrime.gov.in</a></div>` : ""}
+        ${r.saved
+          ? `<p class="done">✓ Sealed as evidence</p>
+             <button class="btn btn--primary btn--block" data-action="complaint">Next: draft complaint →</button>`
+          : `<button class="btn btn--primary btn--block" data-action="vault">Next: seal as evidence →</button>`}
+        ${callsHtml()}` : ""}
 
-        <div class="meta">
-          <span class="chip">${esc(SOURCE_LABEL[r.source]?.(r.model) || r.source)}</span>
-          <span class="chip">${r.pii_masked} PII item${r.pii_masked === 1 ? "" : "s"} masked</span>
-        </div>
+        <p class="meta-line">${esc(SOURCE_LABEL[r.source]?.(r.model) || r.source)} · ${r.pii_masked} personal detail${r.pii_masked === 1 ? "" : "s"} masked</p>
       </div>`;
 
     // Animate the gauge after paint.
@@ -228,6 +224,7 @@
       if (fill) fill.style.strokeDashoffset = offset;
     });
     highlight(flagged, r.severity);
+    window.kavachFlow?.set(r.saved ? 3 : 2);
   }
 
   function clearHighlights() {
@@ -328,7 +325,7 @@
     openChat(activeId || conversations.find((c) => c.id === "rahul")?.id || conversations[0].id);
   }
 
-  window.kavach = { results, conversations, captureVisibleMessages, scan, addConversation, deselect, toast, openShield };
+  window.kavach = { results, conversations, captureVisibleMessages, scan, addConversation, deselect, toast, openShield, callsHtml };
 
   checkHealth();
   renderContacts();

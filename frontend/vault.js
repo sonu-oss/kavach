@@ -155,6 +155,7 @@
     window.kavachImport?.close();
     window.kavachComplaint?.close();
     window.kavachSos?.close();
+    window.kavachFlow?.set(3);
     isOpen = true;
     document.body.classList.add("vaulting");
     els.view.hidden = false;
@@ -186,8 +187,8 @@
   function render() {
     renderPill();
     if (!records.length) {
-      els.body.innerHTML = `<div class="empty"><p>The Vault is empty.</p>
-        <p class="small">Scan a chat and press <strong>Save to Vault</strong> on a medium or high risk result.</p></div>`;
+      els.body.innerHTML = `<div class="empty"><p>Nothing sealed yet.</p>
+        <p class="small">Scan a chat, then press <strong>Seal as evidence</strong>.</p></div>`;
       return;
     }
     const captures = new Map();
@@ -213,7 +214,7 @@
       </header>
       ${shots.length ? `<div class="capture__shots">${shots.map(renderShot).join("")}</div>` : ""}
       <ol class="records">${msgs.map(renderRecord).join("")}</ol>
-      ${a && a.severity !== "low" ? `<div class="capture__actions"><button type="button" class="btn" data-complaint="${esc(first.capture_id)}" data-title="${esc(first.conversation)}">Draft complaint from this evidence</button></div>` : ""}
+      ${a && a.severity !== "low" ? `<div class="capture__actions"><button type="button" class="btn btn--primary" data-complaint="${esc(first.capture_id)}" data-title="${esc(first.conversation)}">Next: draft complaint →</button></div>` : ""}
     </article>`;
   }
 
@@ -294,20 +295,18 @@
     const brokenRec = broken && records.find((r) => r.id === verification.first_broken_id);
     els.shield.innerHTML = `<div class="verdict vault-panel">
       ${broken ? `<div class="error"><strong>Evidence was altered.</strong><br>Record #${verification.first_broken_id}
-        ${brokenRec?.message_text ? `now reads “${esc(brokenRec.message_text)}”, which` : ""} does not match what was sealed
-        on ${esc(when(brokenRec?.server_timestamp || records[0].server_timestamp))}. Everything after it is unverified.</div>` : ""}
+        ${brokenRec?.message_text ? `now reads “${esc(brokenRec.message_text)}”` : "changed"}. Everything after it is unverified.</div>` : ""}
       <div>
-        <p class="section-title">How this protects her evidence</p>
+        <p class="section-title">Why it holds up</p>
         <ul class="explain">
-          <li><strong>Sealed:</strong> each message and screenshot gets a SHA-256 fingerprint of its content, sender, platform and AI verdict.</li>
-          <li><strong>Server time:</strong> the Kavach server stamps the time, not the phone, so the date can't be faked.</li>
-          <li><strong>Chained:</strong> each seal includes the previous one. Change one character anywhere and every later link breaks.</li>
+          <li><strong>Sealed</strong> · SHA-256 per message</li>
+          <li><strong>Server time</strong> · not the phone's clock</li>
+          <li><strong>Chained</strong> · one edit breaks the rest</li>
         </ul>
       </div>
-      ${head ? `<div><p class="section-title">Chain head (fingerprint of the whole vault)</p><code class="hash-block">${esc(head)}</code></div>` : ""}
+      ${head ? `<div><p class="section-title">Vault fingerprint</p><code class="hash-block">${esc(head)}</code></div>` : ""}
       ${demoMode && records.length ? `<div class="demo-box">
         <p class="section-title">Demo: play the attacker</p>
-        <p class="muted tiny">Edits the database directly, the way someone with access to the server would.</p>
         <div class="demo-actions">
           <button type="button" class="btn" data-demo="tamper">Edit a message</button>
           <button type="button" class="btn" data-demo="rehash">Edit + re-seal it</button>

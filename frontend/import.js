@@ -25,6 +25,7 @@
     addRow: $("#add-row"),
     cancel: $("#import-cancel"),
     scan: $("#import-scan"),
+    hint: $("#import-hint"),
   };
 
   const SAMPLES = ["samples/sample-hinglish.png", "samples/sample-kannada.png"];
@@ -49,6 +50,7 @@
     window.kavachVault?.close();
     window.kavachComplaint?.close();
     window.kavachSos?.close();
+    window.kavachFlow?.set(1);
     isOpen = true;
     rows = [];
     images = [];
@@ -357,14 +359,22 @@
   }
 
   // A complaint must name the real app, so the platform is required before scanning.
+  // Say why the button is disabled right next to it, not in a tooltip nobody sees.
   function updateScanButton() {
     const hasText = rows.some((r) => r.text.trim());
-    els.scan.disabled = !hasText || !els.platform.value;
-    els.scan.title = els.platform.value ? "" : "Choose the app this chat is from";
+    const missing = !rows.length ? "" : !els.platform.value ? "↑ Choose which app this chat is from" : !hasText ? "Add at least one message" : "";
+    els.scan.disabled = Boolean(missing) || !rows.length;
+    els.hint.textContent = missing;
+    els.hint.hidden = !missing;
   }
   els.platform.addEventListener("change", () => {
     els.platform.classList.toggle("missing", !els.platform.value);
     updateScanButton();
+  });
+  els.hint.addEventListener("click", () => {
+    if (els.platform.value) return;
+    els.platform.scrollIntoView({ behavior: "smooth", block: "center" });
+    els.platform.focus();
   });
 
   els.addRow.addEventListener("click", () => {

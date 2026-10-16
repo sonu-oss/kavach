@@ -161,15 +161,15 @@
   async function sendSos(trigger) {
     log = [];
     current = null;
-    addLog(`Long-press on Decline detected (${HOLD_MS / 1000} s). Screen shows a normal declined call.`);
+    addLog(`Decline held ${HOLD_MS / 1000} s. Screen shows a normal declined call.`);
     renderPanel();
     try {
       const loc = await readLocationOnce();
-      addLog(`Location read <strong>once</strong>, now (${loc.source === "gps" ? "device GPS" : "demo location"}), ±${Math.round(loc.accuracy)} m. Never tracked before this moment.`, "ok");
+      addLog(`Location read once (${loc.source === "gps" ? "GPS" : "demo"}, ±${Math.round(loc.accuracy)} m).`, "ok");
 
       const { spki } = await (await fetch(`${API}/sos/key`)).json();
       const ciphertext = await encrypt({ lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy }, spki);
-      addLog(`Encrypted in the browser with RSA-OAEP-256 (server public key): <code>${esc(ciphertext.slice(0, 28))}…</code>`, "ok");
+      addLog(`Encrypted on the phone: <code>${esc(ciphertext.slice(0, 20))}…</code>`, "ok");
 
       const contacts = settings.contacts.filter((c) => c?.name);
       const res = await fetch(`${API}/sos`, {
@@ -180,9 +180,9 @@
       const body = await res.json();
       if (!res.ok) throw new Error(body.detail || `HTTP ${res.status}`);
       current = body;
-      addLog(body.updated_existing ? "SOS already active: location updated." : "Sent to <code>POST /sos</code>. Server decrypted it.", "ok");
+      addLog(body.updated_existing ? "SOS already active: location updated." : "Sent to Kavach.", "ok");
       simulateCalls(body.contacts_notified);
-      addLog(`${body.responders_alerted.length} verified responders within 3 km alerted with an <strong>approximate</strong> area only.`, "ok");
+      addLog(`${body.responders_alerted.length} nearby volunteers alerted (approximate area only).`, "ok");
       startPolling();
     } catch (err) {
       addLog(`SOS failed: ${esc(err.message)}. In a real emergency call 112.`, "warn");
@@ -219,8 +219,8 @@
       return;
     }
     contacts.forEach((c, i) => {
-      setTimeout(() => addLog(`Calling ${esc(c.name)}… and sending an SMS with the live-location link <span class="muted">(simulated)</span>`), 600 + i * 1400);
-      setTimeout(() => addLog(i === 0 ? `${esc(c.name)}: no answer, moving on <span class="muted">(simulated)</span>` : `${esc(c.name)}: connected <span class="muted">(simulated)</span>`, i === 0 ? "warn" : "ok"), 1300 + i * 1400);
+      setTimeout(() => addLog(`Calling ${esc(c.name)} + SMS link <span class="muted">(simulated)</span>`), 600 + i * 1400);
+      setTimeout(() => addLog(i === 0 ? `${esc(c.name)}: no answer` : `${esc(c.name)}: connected`, i === 0 ? "warn" : "ok"), 1300 + i * 1400);
     });
   }
 
@@ -236,7 +236,7 @@
         current = { ...current, ...fresh };
         if (JSON.stringify(current.responders_alerted.map((r) => r.status)) !== before) {
           current.responders_alerted.filter((r) => r.status === "accepted").forEach((r) => {
-            if (!log.some((l) => l.text.includes(`${r.name} accepted`))) addLog(`${esc(r.name)} accepted and now sees your exact location.`, "ok");
+            if (!log.some((l) => l.text.includes(`${r.name} accepted`))) addLog(`${esc(r.name)} accepted: sees exact location.`, "ok");
           });
           renderPanel();
         }
@@ -250,7 +250,7 @@
     if (!current) return;
     await fetch(`${API}/sos/${current.sos_id}/cancel`, { method: "POST" });
     clearInterval(pollTimer);
-    addLog("Marked safe: live link and responders' exact view switched off.", "ok");
+    addLog("Marked safe. Sharing stopped.", "ok");
     current.status = "cancelled";
     renderPanel();
   }
@@ -268,23 +268,23 @@
     const live = c && c.status === "active";
     els.shield.innerHTML = `<div class="verdict no-anim">
       <p class="section-title">Behind the scenes</p>
-      ${log.length ? `<ol class="sos-log">${steps}</ol>` : `<p class="note">Ring the fake call, then press and hold <strong>Decline</strong> for 2 seconds. A quick tap just declines.</p>`}
+      ${log.length ? `<ol class="sos-log">${steps}</ol>` : `<p class="note">Ring the call, then hold <strong>Decline</strong> for 2 s.</p>`}
       ${c ? `
         <div>
           <p class="section-title">Trusted contacts</p>
           <div class="who">${c.contacts_notified.map((x) => `<div class="who__row"><span>${esc(x.name)}<small>${esc(x.channel)}</small></span></div>`).join("") || '<p class="note">None set up.</p>'}</div>
-          ${live ? `<a class="btn btn--block portal-btn" style="margin-top:6px" href="${esc(c.track_path)}" target="_blank" rel="noopener">Open their live-location link ↗</a>
-          <p class="note">Private link, expires in ${c.track_expires_in_min / 60} hours or when she marks herself safe.</p>` : ""}
+          ${live ? `<a class="btn btn--block portal-btn" style="margin-top:6px" href="${esc(c.track_path)}" target="_blank" rel="noopener">Open live-location link ↗</a>
+          <p class="note">Expires in ${c.track_expires_in_min / 60} h or when she's safe.</p>` : ""}
         </div>
         <div>
-          <p class="section-title">Responders alerted (approximate area only)</p>
+          <p class="section-title">Nearby volunteers</p>
           <div class="who">
             ${c.responders_alerted.map((r) => `<div class="who__row"><span>${esc(r.name)}<small>${esc(r.role)} · ~${r.distance_km} km</small></span><span class="state ${r.status}">${r.status}</span></div>`).join("")}
             ${c.responders_excluded.map((r) => `<div class="who__row"><span>${esc(r.name)}<small>${esc(r.reason)}</small></span><span class="state excluded">not alerted</span></div>`).join("")}
           </div>
-          <a class="btn btn--block portal-btn" style="margin-top:6px" href="/responder.html" target="_blank" rel="noopener">Open the responder view ↗</a>
+          <a class="btn btn--block portal-btn" style="margin-top:6px" href="/responder.html" target="_blank" rel="noopener">Open responder view ↗</a>
         </div>
-        ${live ? `<button type="button" class="btn btn--block safe-btn" data-safe>I'm safe: stop sharing</button>` : `<p class="note">SOS ended.</p>`}` : ""}
+        ${live ? `<button type="button" class="btn btn--block safe-btn" data-safe>I'm safe · stop sharing</button>` : `<p class="note">SOS ended.</p>`}` : ""}
     </div>`;
   }
 

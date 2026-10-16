@@ -79,6 +79,7 @@
     window.kavachImport?.close();
     window.kavachVault?.close();
     window.kavachSos?.close();
+    window.kavachFlow?.set(4);
     isOpen = true;
     document.body.classList.add("complaining");
     els.view.hidden = false;
@@ -235,25 +236,22 @@
     const laws = data.sections
       .map((s) => {
         const pct = Math.round(s.confidence * 100);
-        return `<div class="law ${s.low_confidence ? "low" : ""}">
-          <div class="law__head"><span class="law__id">Section ${esc(s.section)} · ${esc(actShort(s.act))}</span></div>
-          <div class="law__title">${esc(s.title)}</div>
+        return `<div class="law ${s.low_confidence ? "low" : ""}" title="${esc(s.punishment)}">
+          <div class="law__head"><span class="law__id">Sec ${esc(s.section)} · ${esc(actShort(s.act))}</span><span class="law__title">${esc(s.title)}</span></div>
           <div class="conf"><div class="conf__bar"><span style="width:${pct}%"></span></div>${pct}%</div>
-          ${s.low_confidence ? `<div class="law__warn">Consult a lawyer to confirm this applies</div>` : ""}
           <p class="law__why">${esc(s.how_it_applies)}</p>
-          <div class="law__meta"><span>${esc(s.punishment)}</span></div>
+          ${s.low_confidence ? `<div class="law__warn">Ask a lawyer to confirm</div>` : ""}
           <div class="law__meta">
-            <a href="${esc(s.source)}" target="_blank" rel="noopener">Official text (India Code)</a>
-            ${s.verified_against_official_text ? "<span>✓ verified against official text</span>" : "<span>Not yet checked against the official Gazette</span>"}
+            <a href="${esc(s.source)}" target="_blank" rel="noopener">Official text</a>
+            ${s.verified_against_official_text ? "<span>✓ Verified</span>" : "<span>Not verified</span>"}
           </div>
         </div>`;
       })
       .join("");
 
     const dropped = data.dropped_citations.length
-      ? `<div class="dropped"><strong>${data.dropped_citations.length} citation(s) removed.</strong> The AI mentioned
-          ${data.dropped_citations.map((d) => `<code>${esc(d.citation)}</code>`).join(", ")}, which ${data.dropped_citations.length === 1 ? "was" : "were"} not in the retrieved laws.</div>`
-      : `<p class="note">✓ Citation check passed: every law in the draft came from the legal corpus.</p>`;
+      ? `<div class="dropped">Removed unverified citation${data.dropped_citations.length === 1 ? "" : "s"}: ${data.dropped_citations.map((d) => `<code>${esc(d.citation)}</code>`).join(", ")}</div>`
+      : `<p class="note">✓ Every cited law is from the verified list.</p>`;
 
     const rows = data.retrieval
       .map(
@@ -261,13 +259,13 @@
           <td>${r.rerank_score ?? "–"}</td><td class="${r.kept ? "kept" : ""}">${r.kept ? "✓" : ""}</td></tr>`
       )
       .join("");
-    const how = `<details class="how"><summary>How these laws were chosen</summary>
-      <p class="note">Hybrid search over the legal corpus (keyword BM25${data.pipeline.dense_retrieval ? " + meaning-based embeddings" : ""} + threat type), then the AI scored each candidate against the facts. Only sections scoring 40+ are cited.</p>
+    const how = `<details class="how"><summary>How these were chosen</summary>
+      <p class="note">Keyword + meaning search, then AI scoring. 40+ is cited.</p>
       <table><thead><tr><th>Section</th><th>BM25</th><th>Meaning</th><th>Type</th><th>AI score</th><th>Cited</th></tr></thead><tbody>${rows}</tbody></table>
       <p class="note">Models: ${esc(Object.values(data.pipeline.models).join(", ") || "none (template)")}</p>
     </details>`;
 
-    return `<p class="section-title">Laws that may apply</p>${laws || '<p class="note">No section passed the confidence check. Ask the police or a lawyer which law applies.</p>'}${dropped}${how}`;
+    return `<p class="section-title">Laws that may apply</p>${laws || '<p class="note">No law matched with confidence. Ask the police or a lawyer.</p>'}${dropped}${how}`;
   }
 
   function fileHtml() {
@@ -275,35 +273,27 @@
     const field = (label, value, long = false) =>
       `<div class="copy-field"><span class="label">${esc(label)}</span><span class="value ${long ? "long" : ""}">${esc(value)}</span>
         <button type="button" class="copy-btn" data-copy="${esc(value)}">Copy</button></div>`;
-    const shots = data.complaint.evidence.filter((e) => e.kind === "screenshot");
     const short = p.description_chars < 200;
     return `
-      <div class="urgent">
-        <a class="u112" href="tel:112">In danger right now? Call 112 <span>→</span></a>
-        ${p.money_lost_note ? `<a class="u1930" href="tel:1930">Lost money? Call 1930 now, within hours <span>→</span></a>` : `<a class="u1930" href="tel:1930">Cyber crime helpline 1930 <span>→</span></a>`}
-        <a class="u181" href="tel:181">Women helpline 181 <span>→</span></a>
-      </div>
-      <p class="note">Kavach can't file for you: the portal needs you to log in with your own phone OTP. Everything below is ready to paste.</p>
+      ${window.kavach.callsHtml()}
+      ${p.money_lost_note ? `<p class="note warn-note">Lost money? Call 1930 now: the first hours matter.</p>` : ""}
       <ol class="steps">
-        <li>Open the portal and choose <strong>File a complaint</strong>, accept the terms, then log in with your mobile number.
-          <a class="btn btn--primary portal-btn" style="margin-top:6px" href="${esc(p.url)}" target="_blank" rel="noopener">Open cybercrime.gov.in ↗</a></li>
-        <li>Pick the category. Suggested: <div class="route">${p.route.map(esc).join(" → ")}</div>
-          <span class="note">The portal's menus change; choose the closest option you see.</span></li>
-        <li>Incident details
+        <li><strong>Open the portal</strong> · log in with your phone OTP
+          <a class="btn btn--primary btn--block portal-btn" style="margin-top:8px" href="${esc(p.url)}" target="_blank" rel="noopener">Open cybercrime.gov.in ↗</a></li>
+        <li><strong>Category</strong> <div class="route">${p.route.map(esc).join(" → ")}</div></li>
+        <li><strong>Incident</strong>
           ${field("Date", p.incident_date)}
-          ${p.incident_date_is_estimate ? `<span class="note">No incident date was given, so this is the date the evidence was saved. Change it on the portal if it happened earlier.</span>` : ""}
-          ${field("Platform", p.platform)}
-          ${field("Description", p.description, true)}
-          <span class="note">${p.description_chars} characters${short ? ". The portal needs at least 200, so add more detail." : " (the portal needs at least 200)."}</span></li>
-        <li>Suspect details (optional on the portal, but they help)
+          ${field("App", p.platform)}
+          ${field("Details", p.description, true)}
+          ${short ? `<span class="note warn-note">Add more detail: the portal needs 200+ characters.</span>` : ""}</li>
+        <li><strong>Suspect</strong>
           ${p.suspect_identifiers.map((i) => field(i.type, i.value)).join("")}</li>
-        <li>Upload evidence
-          <div class="copy-field"><span class="label">Report</span><span class="value">Evidence report PDF with hashes and Section 63 certificate</span>
-            <a class="copy-btn" href="${API}/evidence/report" download>Download</a></div>
-          ${shots.map((s) => `<div class="copy-field"><span class="label">${esc(s.id)}</span><span class="value">${esc(s.description)}</span></div>`).join("")}
-          <span class="note">Screenshots are also inside the evidence report.</span></li>
-        <li>Fill in your own details, review, and submit. <strong>Write down the acknowledgement number</strong> so you can track the complaint.</li>
-      </ol>`;
+        <li><strong>Evidence</strong>
+          <div class="copy-field"><span class="label">PDF</span><span class="value">Sealed evidence report</span>
+            <a class="copy-btn" href="${API}/evidence/report" download>Download</a></div></li>
+        <li><strong>Submit</strong> · save the acknowledgement number</li>
+      </ol>
+      <p class="note">You submit it yourself. Kavach can't log in for you.</p>`;
   }
 
   els.shield.addEventListener("click", (e) => {
