@@ -3,19 +3,52 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Kavach Smart Shield</title>
+  <title>Kavach AI</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body class="at-home">
+  <header class="topbar">
+    <button class="brand" id="home-link" type="button" aria-label="Kavach home">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v6c0 5.25 3.4 10.15 8 11.5 4.6-1.35 8-6.25 8-11.5V5l-8-3Z"/></svg>
+      Kavach
+    </button>
+    <nav class="nav" aria-label="Main">
+      <button class="nav-link" data-nav="shield" type="button">Shield</button>
+      <button class="nav-link" id="vault-btn" data-nav="vault" type="button">Vault <span id="vault-count" class="nav-count">0</span></button>
+      <button class="nav-link" id="sos-btn" data-nav="sos" type="button">SOS</button>
+      <a class="nav-link" href="/responder.html" target="_blank" rel="noopener">Responders ↗</a>
+    </nav>
+    <span class="nav-status" id="nav-status">Prototype</span>
+  </header>
+
+  <!-- Home: one message, one main action -->
+  <section class="home" id="home">
+    <div class="home__orb" aria-hidden="true"></div>
+    <div class="home__hero">
+      <p class="eyebrow">Online safety for women · India</p>
+      <h1>Detect the threat.<br />Preserve the proof.</h1>
+      <p class="home__sub">Kavach reads a harassing chat, seals it as tamper-proof evidence, drafts the police complaint, and gets help, quietly.</p>
+      <div class="home__cta">
+        <button class="btn btn--primary btn--lg" data-go="scan" type="button">Scan a chat screenshot <span aria-hidden="true">›</span></button>
+        <button class="btn btn--lg" data-go="shield" type="button">Try the demo chats</button>
+      </div>
+    </div>
+    <ol class="home__tiles">
+      <li data-go="shield"><span class="tile__no">01</span><strong>Shield</strong><span>AI flags harassment, threats, sextortion and scams, in English, Hinglish and Kannada.</span></li>
+      <li data-go="vault"><span class="tile__no">02</span><strong>Vault</strong><span>Every message sealed with SHA-256. Edit one and the chain breaks.</span></li>
+      <li data-go="shield"><span class="tile__no">03</span><strong>Report</strong><span>A complaint citing real BNS and IT Act sections, ready for cybercrime.gov.in.</span></li>
+      <li data-go="sos"><span class="tile__no">04</span><strong>SOS</strong><span>A fake call that silently alerts trusted contacts and nearby volunteers.</span></li>
+    </ol>
+  </section>
+
   <div class="app">
     <!-- Mock chat app: stands in for Instagram / WhatsApp in the demo -->
     <aside class="contacts">
       <header class="contacts__head">
-        <span class="logo-dot"></span>
-        <strong>ChatSpace</strong>
-        <span class="muted small">mock chat</span>
+        <span class="eyebrow">Chats</span>
+        <span class="muted small">demo inbox</span>
       </header>
       <div class="contacts__import">
         <button id="import-btn" class="btn btn--block import-btn" type="button">
@@ -24,23 +57,6 @@
         </button>
       </div>
       <ul id="contact-list" class="contact-list"></ul>
-      <div class="contacts__foot">
-        <button id="sos-btn" class="vault-btn" type="button">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2Z"/></svg>
-          <span>Discreet SOS</span>
-          <span class="vault-count proto">demo</span>
-        </button>
-        <a class="vault-btn" href="/responder.html" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg>
-          <span>Responder view</span>
-          <span class="vault-count proto">↗</span>
-        </a>
-        <button id="vault-btn" class="vault-btn" type="button">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 1 3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4Zm0 6a3 3 0 0 1 1 5.83V16h-2v-3.17A3 3 0 0 1 12 7Z"/></svg>
-          <span>Evidence Vault</span>
-          <span id="vault-count" class="vault-count">0</span>
-        </button>
-      </div>
     </aside>
 
     <main class="chat">
@@ -277,7 +293,7 @@
       </div>
 
       <footer class="shield__foot">
-        <button id="scan-btn" class="btn btn--primary btn--block">Scan this chat</button>
+        <button id="scan-btn" class="btn btn--block">Scan this chat again</button>
         <p class="muted tiny">Phone numbers, emails, UPI IDs and addresses are masked before anything is sent to the AI.</p>
       </footer>
     </aside>
@@ -293,5 +309,6 @@
   <script src="vault.js"></script>
   <script src="complaint.js"></script>
   <script src="sos.js"></script>
+  <script src="nav.js"></script>
 </body>
 </html>

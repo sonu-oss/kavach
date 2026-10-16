@@ -323,8 +323,14 @@
     els.shield.innerHTML = `<div class="empty"><p>${message}</p></div>`;
   }
 
-  window.kavach = { results, conversations, captureVisibleMessages, scan, addConversation, deselect, toast };
+  // Opens the chat that is already selected, or the first threatening demo chat.
+  function openShield() {
+    openChat(activeId || conversations.find((c) => c.id === "rahul")?.id || conversations[0].id);
+  }
+
+  window.kavach = { results, conversations, captureVisibleMessages, scan, addConversation, deselect, toast, openShield };
 
   checkHealth();
-  openChat(conversations[1].id);
+  renderContacts();
+  // No chat is opened (or scanned) until she leaves the home screen: nav.js calls openShield().
 })();
