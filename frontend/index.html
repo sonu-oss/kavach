@@ -187,13 +187,15 @@
         <div class="complaint__body" id="complaint-body">
           <details class="details-card" id="my-details">
             <summary><strong>Your details</strong> <span class="muted small">Stays on this device</span></summary>
+            <!-- autocomplete off: on a shared or demo laptop, the browser must not fill in someone else's details -->
             <div class="details-grid">
-              <label>Full name<input data-field="name" autocomplete="name" /></label>
-              <label>Phone<input data-field="phone" autocomplete="tel" /></label>
-              <label>Email<input data-field="email" autocomplete="email" /></label>
-              <label>City / district<input data-field="city" autocomplete="address-level2" /></label>
-              <label class="wide">Address<input data-field="address" autocomplete="street-address" /></label>
+              <label>Full name<input data-field="name" autocomplete="off" placeholder="Your full name" /></label>
+              <label>Phone<input data-field="phone" autocomplete="off" placeholder="Phone" /></label>
+              <label>Email<input data-field="email" autocomplete="off" placeholder="Email" /></label>
+              <label>City / district<input data-field="city" autocomplete="off" placeholder="City" /></label>
+              <label class="wide">Address<input data-field="address" autocomplete="off" placeholder="Address" /></label>
             </div>
+            <button type="button" id="clear-details" class="btn btn--ghost small" style="margin-top:10px">Clear my details</button>
           </details>
           <div id="complaint-loading" class="loading" hidden><div class="spinner"></div><span id="complaint-status">Finding the laws that apply…</span></div>
           <textarea id="letter" class="letter" spellcheck="true" aria-label="Complaint letter"></textarea>

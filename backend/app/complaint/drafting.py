@@ -71,7 +71,8 @@ Plain, formal, simple English. Reply with JSON only:
  "incident_summary": str (120-220 words, one or two paragraphs, cite allowed sections inline),
  "timeline": [{"when": str (as shown in the evidence), "what": str (max 20 words), "evidence_ids": [str]}],
  "section_explanations": [{"id": str, "how_it_applies": str (max 30 words)}],
- "relief_sought": [str] (3-5 short requests to the police),
+ "relief_sought": [str] (3-5 short requests to the police; only ask to recover or freeze money if the
+   messages show money was actually paid),
  "portal_description": str (400-1300 characters for the police portal: first describe WHAT HAPPENED (who, which
    platform, what was said, demanded or threatened, in order), then one sentence on what she asks for. Plain
    sentences, no section ids, and none of these characters: # $ @ ^ * ` ~ | !)

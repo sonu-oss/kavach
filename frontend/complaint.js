@@ -74,6 +74,28 @@
   );
   els.letter.addEventListener("input", () => (edited = true));
 
+  // Wipe her details from this browser (e.g. after a demo on a shared laptop).
+  document.querySelector("#clear-details").addEventListener("click", () => {
+    const before = { ...details };
+    Object.keys(details).forEach((k) => delete details[k]);
+    inputs.forEach((i) => (i.value = ""));
+    try {
+      localStorage.removeItem(DETAILS_KEY);
+    } catch {
+      /* nothing stored */
+    }
+    if (data) {
+      if (!edited) {
+        els.letter.value = composeLetter();
+      } else {
+        for (const [f, v] of Object.entries(before)) {
+          if (v) els.letter.value = els.letter.value.split(v).join(PLACEHOLDER[f]);
+        }
+      }
+    }
+    window.kavach.toast("Your details were cleared from this device");
+  });
+
   // ---------- open ----------
   async function open(captureId, title) {
     window.kavachImport?.close();
