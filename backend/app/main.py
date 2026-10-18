@@ -159,6 +159,12 @@ def sos_trigger(body: SosIn):
     return _sos_call(sos.trigger, DEMO_USER, loc, contacts, body.trigger, body.location_source)
 
 
+@app.get("/sos/active")
+def sos_active():
+    """Her running SOS, if any (declared before /sos/{sos_id} so it isn't taken as an id)."""
+    return {"active": sos.active_for(DEMO_USER)}
+
+
 @app.get("/sos/{sos_id}")
 def sos_status(sos_id: str):
     return _sos_call(sos.status_for_victim, sos_id)

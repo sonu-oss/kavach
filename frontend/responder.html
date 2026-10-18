@@ -22,6 +22,11 @@
     .accept { background: var(--risk-low); color: #fff; border-color: transparent; }
     .exact { font-size: 12.5px; background: var(--risk-low-bg); color: var(--risk-low); padding: 8px 10px; border-radius: 8px; }
     .exact a { color: inherit; font-weight: 700; }
+    .live { font: 500 11px/1 var(--mono); letter-spacing: .08em; color: var(--risk-low); margin-left: auto; }
+    .live.off { color: var(--risk-med); }
+    .new-alert { background: var(--risk-high); color: #fff; font: 600 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 10px 12px; border-radius: 4px; animation: pulse-bg 1s ease-in-out 3; }
+    .new-alert[hidden] { display: none; }
+    @keyframes pulse-bg { 50% { opacity: .6; } }
     .privacy { font-size: 12px; color: var(--muted); background: var(--surface); border: 1px dashed var(--border); border-radius: 10px; padding: 10px 12px; }
     @media (max-width: 820px) { body { grid-template-columns: 1fr; grid-template-rows: auto auto 60vh; } aside { border-right: none; } }
   </style>
@@ -32,12 +37,14 @@
       <h1>Kavach Responder Network</h1>
       <span class="muted small">Prototype dashboard · mock responders</span>
     </div>
+    <span class="live" id="live">Connecting…</span>
     <label class="small muted">Signed in as
       <select id="who"></select>
     </label>
   </header>
   <aside>
-    <div class="privacy">You see only an <strong>approximate 1 km area</strong> until you accept. Accepting shares her exact location with <strong>you alone</strong>. Unverified or opted-out accounts receive no alerts.</div>
+    <div class="new-alert" id="new-alert" hidden>New SOS nearby</div>
+    <div class="privacy">Approximate area until you accept. Then her exact location is shared with <strong>you only</strong>.</div>
     <div id="alerts"><p class="note">Loading…</p></div>
   </aside>
   <div id="map"></div>
@@ -51,34 +58,60 @@
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }).addTo(map);
       const layer = L.layerGroup().addTo(map);
       let responders = [], alerts = [], selected = null, me = null, lastKey = "";
+      let seen = null; // SOS ids this responder has already been shown
+      const live = $("#live");
 
       async function init() {
-        const d = await (await fetch("/responders")).json();
+        let d;
+        try {
+          d = await (await fetch("/responders")).json();
+        } catch {
+          $("#alerts").innerHTML = `<p class="note">Can't reach Kavach. Is the server running?</p>`;
+          live.textContent = "Offline";
+          return setTimeout(init, 3000);
+        }
         responders = d.responders;
         const saved = new URLSearchParams(location.search).get("as");
         $("#who").innerHTML = responders.map((r) =>
           `<option value="${r.id}">${esc(r.name)}${r.verified ? "" : " (unverified)"}${r.opted_in ? "" : " (alerts off)"}</option>`).join("");
         if (saved) $("#who").value = saved;
         me = $("#who").value;
-        $("#who").addEventListener("change", () => { me = $("#who").value; selected = null; lastKey = ""; refresh(); });
+        $("#who").addEventListener("change", () => { me = $("#who").value; selected = null; seen = null; lastKey = ""; refresh(); });
         refresh();
         setInterval(refresh, 3000);
       }
 
       async function refresh() {
-        const d = await (await fetch(`/responders/${me}/alerts`)).json();
-        alerts = d.alerts;
+        try {
+          const d = await (await fetch(`/responders/${me}/alerts`)).json();
+          alerts = d.alerts;
+          live.textContent = `● Live · checked ${new Date().toLocaleTimeString("en-GB")}`;
+          live.classList.remove("off");
+        } catch {
+          live.textContent = "Offline · retrying";
+          live.classList.add("off");
+          return;
+        }
+        // A new SOS jumps to the top of her attention: select it and flag it.
+        const fresh = alerts.filter((a) => seen && !seen.has(a.sos_id));
+        seen = new Set(alerts.map((a) => a.sos_id));
+        if (fresh.length) {
+          selected = fresh[0].sos_id;
+          $("#new-alert").hidden = false;
+          document.title = "● New SOS · Kavach Responder";
+          setTimeout(() => { $("#new-alert").hidden = true; document.title = "Kavach Responder"; }, 8000);
+        }
+        if (!alerts.some((a) => a.sos_id === selected)) selected = alerts[0]?.sos_id || null;
         const key = JSON.stringify(alerts);
         if (key === lastKey) return;
         lastKey = key;
-        if (!selected && alerts.length) selected = alerts[0].sos_id;
         render();
       }
 
       function render() {
         const r = responders.find((x) => x.id === me);
         if (!alerts.length) {
-          $("#alerts").innerHTML = `<p class="note">No alerts for ${esc(r.name)}.${!r.verified ? " This account is not verified, so it never receives alerts." : !r.opted_in ? " This account has alerts turned off." : " Trigger an SOS from the app's Discreet SOS screen."}</p>`;
+          $("#alerts").innerHTML = `<p class="note">${!r.verified ? "Not verified: this account never gets alerts." : !r.opted_in ? "Alerts are turned off for this account." : "No alerts yet. Waiting for an SOS nearby…"}</p>`;
           layer.clearLayers();
           return;
         }
@@ -86,14 +119,16 @@
           const ended = a.sos_status !== "active";
           const exact = a.exact
             ? `<div class="exact">Exact location shared with you only.<br><a href="https://www.openstreetmap.org/directions?route=${a.my_position.lat}%2C${a.my_position.lng}%3B${a.exact.lat}%2C${a.exact.lng}" target="_blank" rel="noopener">Get directions ↗</a></div>` : "";
-          const acts = ended ? `<p class="note">She marked herself safe. Thank you.</p>`
+          const updated = !ended && a.updated_at && a.updated_at !== a.created_at
+            ? `<div class="row muted">Location updated ${new Date(a.updated_at).toLocaleTimeString("en-IN")}</div>` : "";
+          const acts = ended ? `<p class="note">${a.sos_status === "expired" ? "Alert expired." : "She marked herself safe. Thank you."}</p>`
             : a.my_status === "pending" ? `<div class="acts"><button class="btn accept" data-act="accept" data-id="${a.sos_id}">Accept</button><button class="btn" data-act="decline" data-id="${a.sos_id}">Decline</button></div>`
             : a.my_status === "declined" ? `<p class="note">You declined this alert.</p>` : "";
           return `<div class="card ${a.sos_id === selected ? "selected" : ""}" data-sel="${a.sos_id}">
             <div class="row"><h2>SOS nearby</h2><span class="state ${ended ? "excluded" : a.my_status}">${ended ? "ended" : a.my_status}</span></div>
             <div class="row"><span>${new Date(a.created_at).toLocaleTimeString("en-IN")}</span><span>~${a.approx_distance_km} km from you</span></div>
             ${a.others_accepted ? `<div class="row muted">${a.others_accepted} other responder(s) on the way</div>` : ""}
-            ${exact}${acts}
+            ${updated}${exact}${acts}
           </div>`;
         }).join("");
         drawMap();
@@ -104,7 +139,7 @@
         const a = alerts.find((x) => x.sos_id === selected);
         if (!a) return;
         const mine = [a.my_position.lat, a.my_position.lng];
-        L.circleMarker(mine, { radius: 7, color: "#5b3df5", fillOpacity: 1 }).bindTooltip("You").addTo(layer);
+        L.circleMarker(mine, { radius: 7, color: "#ffd400", fillOpacity: 1 }).bindTooltip("You").addTo(layer);
         if (a.exact && a.sos_status === "active") {
           const her = [a.exact.lat, a.exact.lng];
           L.marker(her).bindTooltip("Her exact location").addTo(layer);

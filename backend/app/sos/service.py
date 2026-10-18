@@ -75,6 +75,15 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def _expire_old() -> None:
+    """An SOS nobody ended stops sharing after the same 2 hours as the live link."""
+    now = time.time()
+    for s in _sos.values():
+        if s.status == "active" and now > s.token_expires:
+            s.status = "expired"
+            s.updated_at = _now_iso()
+
+
 # ---------- geometry ----------
 
 def haversine_m(lat1, lng1, lat2, lng2) -> float:
@@ -115,6 +124,7 @@ def trigger(user: str, loc: dict, contacts: list[dict], trigger_kind: str, sourc
         raise SosError("location is out of range")
 
     with _lock:
+        _expire_old()
         # Re-triggering while an SOS is active refreshes it: never block a person in danger twice.
         active = next((s for s in _sos.values() if s.user == user and s.status == "active"), None)
         if active:
@@ -162,6 +172,7 @@ def summary(sos: Sos, updated: bool) -> dict:
         "updated_existing": updated,
         "status": sos.status,
         "created_at": sos.created_at,
+        "updated_at": sos.updated_at,
         "track_path": f"/track.html?t={sos.track_token}",
         "track_expires_in_min": TRACK_TTL_S // 60,
         "contacts_notified": [
@@ -178,6 +189,7 @@ def summary(sos: Sos, updated: bool) -> dict:
 
 
 def get(sos_id: str) -> Sos:
+    _expire_old()
     sos = _sos.get(sos_id)
     if not sos:
         raise SosError("SOS not found", 404)
@@ -196,7 +208,15 @@ def status_for_victim(sos_id: str) -> dict:
     return summary(get(sos_id), updated=False)
 
 
+def active_for(user: str) -> dict | None:
+    """Lets her SOS screen pick up an alert that is still running (e.g. after a page reload)."""
+    _expire_old()
+    sos = next((s for s in _sos.values() if s.user == user and s.status == "active"), None)
+    return summary(sos, updated=False) if sos else None
+
+
 def track(token: str) -> dict:
+    _expire_old()
     sos_id = _by_token.get(token)
     sos = _sos.get(sos_id) if sos_id else None
     if not sos or time.time() > sos.token_expires:
@@ -220,6 +240,7 @@ def list_responders() -> list[dict]:
 def alerts_for(responder_id: str) -> list[dict]:
     if responder_id not in RESPONDER_BY_ID:
         raise SosError("unknown responder", 404)
+    _expire_old()
     out = []
     for sos in sorted(_sos.values(), key=lambda s: s.created_at, reverse=True):
         a = sos.alerts.get(responder_id)
@@ -229,6 +250,7 @@ def alerts_for(responder_id: str) -> list[dict]:
         item = {
             "sos_id": sos.id,
             "created_at": sos.created_at,
+            "updated_at": sos.updated_at,
             "sos_status": sos.status,
             "my_status": a["status"],
             "my_position": {"lat": me[0], "lng": me[1]},

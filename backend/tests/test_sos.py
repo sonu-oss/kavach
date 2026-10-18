@@ -96,3 +96,31 @@ def test_retrigger_updates_active_sos_and_rate_limit_applies(client):
 
 def test_out_of_range_location_rejected(client):
     assert send_sos(client, loc={"lat": 200, "lng": 0}).status_code == 400
+
+
+def test_active_sos_can_be_recovered_after_a_reload(client):
+    assert client.get("/sos/active").json()["active"] is None
+    sos_id = send_sos(client).json()["sos_id"]
+    assert client.get("/sos/active").json()["active"]["sos_id"] == sos_id
+    client.post(f"/sos/{sos_id}/cancel")
+    assert client.get("/sos/active").json()["active"] is None
+
+
+def test_sos_expires_after_two_hours(client, monkeypatch):
+    r = send_sos(client).json()
+    token = r["track_path"].split("t=")[1]
+    real = service.time.time
+    monkeypatch.setattr(service.time, "time", lambda: real() + service.TRACK_TTL_S + 1)
+    assert client.get("/sos/active").json()["active"] is None
+    assert client.get("/responders/r-asha/alerts").json()["alerts"][0]["sos_status"] == "expired"
+    assert client.get(f"/sos/track/{token}").status_code == 404
+    # A new SOS is a fresh alert, not an update of the expired one.
+    assert send_sos(client).json()["sos_id"] != r["sos_id"]
+
+
+def test_responders_see_when_location_was_updated(client):
+    first = send_sos(client).json()
+    client.post(f"/sos/{first['sos_id']}/respond", json={"responder_id": "r-asha", "action": "accept"})
+    send_sos(client, loc={**LOC, "lat": 12.9401})
+    alert = client.get("/responders/r-asha/alerts").json()["alerts"][0]
+    assert alert["exact"]["lat"] == 12.9401 and alert["updated_at"] >= alert["created_at"]

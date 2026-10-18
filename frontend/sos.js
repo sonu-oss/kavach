@@ -38,6 +38,11 @@
   let pollTimer = null;
   let current = null; // last /sos response
   let log = [];
+  let demoMode = false;
+  fetch(`${API}/health`)
+    .then((r) => r.json())
+    .then((h) => (demoMode = !!h.demo_mode))
+    .catch(() => {});
 
   const esc = (s) =>
     String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -232,9 +237,11 @@
         const res = await fetch(`${API}/sos/${current.sos_id}`);
         if (!res.ok) return;
         const fresh = await res.json();
-        const before = JSON.stringify(current.responders_alerted.map((r) => r.status));
+        const snapshot = (c) => JSON.stringify([c.status, c.responders_alerted.map((r) => r.status)]);
+        const before = snapshot(current);
         current = { ...current, ...fresh };
-        if (JSON.stringify(current.responders_alerted.map((r) => r.status)) !== before) {
+        if (current.status !== "active") clearInterval(pollTimer);
+        if (snapshot(current) !== before) {
           current.responders_alerted.filter((r) => r.status === "accepted").forEach((r) => {
             if (!log.some((l) => l.text.includes(`${r.name} accepted`))) addLog(`${esc(r.name)} accepted: sees exact location.`, "ok");
           });
@@ -285,11 +292,13 @@
           <a class="btn btn--block portal-btn" style="margin-top:6px" href="/responder.html" target="_blank" rel="noopener">Open responder view ↗</a>
         </div>
         ${live ? `<button type="button" class="btn btn--block safe-btn" data-safe>I'm safe · stop sharing</button>` : `<p class="note">SOS ended.</p>`}` : ""}
+      ${demoMode ? `<button type="button" class="btn btn--ghost btn--block" data-sos-reset>Reset SOS demo</button>` : ""}
     </div>`;
   }
 
   els.shield.addEventListener("click", (e) => {
     if (isOpen && e.target.closest("[data-safe]")) imSafe();
+    if (isOpen && e.target.closest("[data-sos-reset]")) resetDemo();
   });
 
   // ---------- open / close ----------
@@ -304,6 +313,33 @@
     window.kavach.deselect("");
     ring();
     renderPanel();
+    restoreActive();
+  }
+
+  // An SOS keeps running on the server if this page is reloaded; pick it up again so
+  // "I'm safe" is always reachable.
+  async function restoreActive() {
+    try {
+      const { active } = await (await fetch(`${API}/sos/active`)).json();
+      if (!active || current?.sos_id === active.sos_id) return;
+      current = active;
+      const since = new Date(active.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+      log = [{ t: hhmmss(), text: `SOS still active since ${since}. Sharing continues until you mark yourself safe.`, cls: "warn" }];
+      startPolling();
+      renderPanel();
+    } catch {
+      /* backend offline: nothing to restore */
+    }
+  }
+
+  async function resetDemo() {
+    await fetch(`${API}/sos/demo/reset`, { method: "POST" });
+    clearInterval(pollTimer);
+    current = null;
+    log = [];
+    ring();
+    renderPanel();
+    window.kavach.toast("SOS demo reset");
   }
 
   function close() {
