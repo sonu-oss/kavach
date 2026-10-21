@@ -9,8 +9,10 @@ works behind a laptop on hotel / hackathon Wi-Fi.
 import asyncio
 import logging
 import smtplib
+import ssl
 from email.message import EmailMessage
 
+import certifi
 import httpx
 
 from app import config
@@ -65,7 +67,9 @@ def _send_email(to: str, subject: str, body: str) -> None:
     msg["To"] = to
     msg["Subject"] = subject
     msg.set_content(body)
-    with smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT, timeout=20) as s:
+    # certifi's CA list: python.org builds on macOS don't use the system certificates.
+    tls = ssl.create_default_context(cafile=certifi.where())
+    with smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT, timeout=20, context=tls) as s:
         s.login(config.SMTP_USER, config.SMTP_PASSWORD)
         s.send_message(msg)
 
