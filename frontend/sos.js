@@ -1,15 +1,17 @@
-// Discreet SOS (Feature 4, prototype).
+// Discreet SOS (Feature 4).
 //
 // A fake incoming call. Tapping Decline declines it. Pressing and holding Decline for
 // 2 seconds ALSO declines it, so the screen looks exactly the same, but silently:
-//   1. reads the location once (never before),
+//   1. reads the location (real GPS, then live updates while the SOS is on),
 //   2. encrypts it in the browser with the server's RSA-OAEP public key,
-//   3. POSTs it to /sos with her trusted contacts.
+//   3. POSTs it to /sos. The server alerts her trusted contacts (Telegram live pin + email)
+//      and nearby verified responders (Telegram with Accept / Decline).
 // The right-hand panel is the presenter's "behind the scenes" view, not part of the phone.
 (() => {
   const API = new URLSearchParams(location.search).get("api") || "";
   const $ = (sel) => document.querySelector(sel);
   const HOLD_MS = 2000;
+  const LIVE_EVERY_MS = 15000; // send a live position at most this often
   const DEMO_LOCATION = { lat: 12.9352, lng: 77.6245, accuracy: 30 }; // Koramangala, Bengaluru
   const SETTINGS_KEY = "kavach.sosSettings";
 
@@ -28,6 +30,10 @@
     missed: $("#missed-text"),
     callerInput: $("#caller-input"),
     locMode: $("#loc-mode"),
+    herName: $("#her-name"),
+    channels: $("#channels-status"),
+    contactList: $("#contact-setup"),
+    addContact: $("#add-contact"),
     shield: $("#shield-body"),
   };
 
@@ -39,6 +45,11 @@
   let current = null; // last /sos response
   let log = [];
   let demoMode = false;
+  let liveWatch = null;
+  let lastLiveSent = 0;
+  let spkiCache = null;
+  let setup = { contacts: [], telegram: { on: false, bot: null }, email_on: false };
+
   fetch(`${API}/health`)
     .then((r) => r.json())
     .then((h) => (demoMode = !!h.demo_mode))
@@ -48,36 +59,34 @@
     String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const hhmmss = () => new Date().toLocaleTimeString("en-GB");
 
-  // ---------- settings (localStorage only) ----------
+  async function api(path, opts = {}) {
+    const res = await fetch(`${API}${path}`, {
+      ...opts,
+      headers: opts.body ? { "Content-Type": "application/json" } : undefined,
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || `HTTP ${res.status}`);
+    return body;
+  }
+
+  // ---------- this-device settings (caller name, location mode) ----------
   function loadSettings() {
     try {
-      return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || null;
+      return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
     } catch {
-      return null;
+      return {};
     }
   }
-  const settings = loadSettings() || {
-    caller: "Mom",
-    contacts: [{ name: "Mom", phone: "" }, { name: "Riya (roommate)", phone: "" }],
-    locMode: "demo",
-  };
+  const settings = { caller: "Mom", locMode: "gps", ...loadSettings() };
   function saveSettings() {
     try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ caller: settings.caller, locMode: settings.locMode }));
     } catch {
       /* private mode: settings just won't persist */
     }
   }
   els.callerInput.value = settings.caller;
   els.locMode.value = settings.locMode;
-  document.querySelectorAll("[data-contact]").forEach((i) => {
-    i.value = settings.contacts[i.dataset.contact]?.[i.dataset.k] || "";
-    i.addEventListener("input", () => {
-      settings.contacts[i.dataset.contact] ||= { name: "", phone: "" };
-      settings.contacts[i.dataset.contact][i.dataset.k] = i.value.trim();
-      saveSettings();
-    });
-  });
   els.callerInput.addEventListener("input", () => {
     settings.caller = els.callerInput.value.trim() || "Mom";
     saveSettings();
@@ -93,6 +102,114 @@
     ["#caller-name", "#caller-name-2"].forEach((s) => ($(s).textContent = name));
     ["#caller-initial", "#caller-initial-2"].forEach((s) => ($(s).textContent = name[0].toUpperCase()));
     els.missed.textContent = `Missed call: ${name}`;
+  }
+
+  // ---------- setup: her name + trusted contacts (saved on the server) ----------
+  async function loadSetup() {
+    try {
+      setup = await api("/sos/setup");
+    } catch {
+      els.channels.textContent = "Kavach is offline";
+      return;
+    }
+    if (document.activeElement !== els.herName) els.herName.value = setup.name === "Someone you know" ? "" : setup.name;
+    els.channels.textContent = `Telegram ${setup.telegram.on ? "on" : "not set up"} · Email ${setup.email_on ? "on" : "not set up"}`;
+    renderContacts();
+  }
+
+  function renderContacts() {
+    if (!setup.contacts.length) {
+      els.contactList.innerHTML = `<li class="note">Add at least one person who should get your SOS.</li>`;
+      return;
+    }
+    els.contactList.innerHTML = setup.contacts
+      .map((c) => {
+        const link = setup.telegram.bot ? `https://t.me/${setup.telegram.bot}?start=${c.link_code}` : null;
+        const tg = c.telegram_linked
+          ? `<span class="ok-tag">Telegram ✓</span>`
+          : link
+            ? `<button type="button" class="link-btn" data-qr="${esc(link)}" data-who="${esc(c.name)}">Connect Telegram</button>`
+            : `<span class="muted small">Telegram not set up</span>`;
+        return `<li class="contact-row">
+          <div><strong>${esc(c.name)}</strong><small>${esc(c.email || "no email")}</small></div>
+          ${tg}
+          <button type="button" class="row-del" data-del="${esc(c.id)}" title="Remove">×</button>
+        </li>`;
+      })
+      .join("");
+  }
+
+  let nameTimer = null;
+  els.herName.addEventListener("input", () => {
+    clearTimeout(nameTimer);
+    nameTimer = setTimeout(() => {
+      const name = els.herName.value.trim();
+      if (name) api("/sos/profile", { method: "PUT", body: JSON.stringify({ name }) }).catch(() => {});
+    }, 500);
+  });
+
+  els.addContact.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(els.addContact);
+    try {
+      await api("/people", {
+        method: "POST",
+        body: JSON.stringify({ kind: "contact", name: f.get("name"), email: f.get("email") || "" }),
+      });
+      els.addContact.reset();
+      await loadSetup();
+    } catch (err) {
+      window.kavach.toast(`Couldn't add: ${err.message}`);
+    }
+  });
+
+  els.contactList.addEventListener("click", async (e) => {
+    const del = e.target.closest("[data-del]");
+    if (del) {
+      await api(`/people/${del.dataset.del}`, { method: "DELETE" }).catch(() => {});
+      return loadSetup();
+    }
+    const qr = e.target.closest("[data-qr]");
+    if (qr) showQr(qr.dataset.qr, qr.dataset.who);
+  });
+
+  // Each contact scans this (or gets the link) and taps Start once.
+  function showQr(link, who) {
+    let svg = "";
+    try {
+      const q = qrcode(0, "M");
+      q.addData(link);
+      q.make();
+      svg = q.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
+    } catch {
+      /* QR library not loaded: the link still works */
+    }
+    const box = document.createElement("div");
+    box.className = "qr-modal";
+    box.innerHTML = `<div class="qr-card">
+      <p class="section-title">Connect ${esc(who)} on Telegram</p>
+      <div class="qr">${svg}</div>
+      <p class="note">${esc(who)} scans this with their phone camera, or open the link on their phone, and taps <strong>Start</strong>.</p>
+      <div class="qr-actions">
+        <button type="button" class="btn" data-copy>Copy link</button>
+        <button type="button" class="btn btn--primary" data-close>Done</button>
+      </div>
+    </div>`;
+    box.addEventListener("click", async (e) => {
+      if (e.target.closest("[data-copy]")) {
+        try {
+          await navigator.clipboard.writeText(link);
+          window.kavach.toast("Link copied");
+        } catch {
+          window.prompt("Copy this link", link);
+        }
+      }
+      if (e.target === box || e.target.closest("[data-close]")) {
+        box.remove();
+        loadSetup();
+      }
+    });
+    document.body.append(box);
   }
 
   // ---------- phone screens ----------
@@ -167,27 +284,24 @@
     log = [];
     current = null;
     addLog(`Decline held ${HOLD_MS / 1000} s. Screen shows a normal declined call.`);
-    renderPanel();
     try {
       const loc = await readLocationOnce();
-      addLog(`Location read once (${loc.source === "gps" ? "GPS" : "demo"}, ±${Math.round(loc.accuracy)} m).`, "ok");
-
-      const { spki } = await (await fetch(`${API}/sos/key`)).json();
-      const ciphertext = await encrypt({ lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy }, spki);
+      addLog(`Location read (${loc.source === "gps" ? "GPS" : "demo"}, ±${Math.round(loc.accuracy)} m).`, "ok");
+      const ciphertext = await encrypt({ lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy });
       addLog(`Encrypted on the phone: <code>${esc(ciphertext.slice(0, 20))}…</code>`, "ok");
 
-      const contacts = settings.contacts.filter((c) => c?.name);
-      const res = await fetch(`${API}/sos`, {
+      current = await api("/sos", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ciphertext, trusted_contacts: contacts, trigger, location_source: loc.source }),
+        body: JSON.stringify({ ciphertext, trigger, location_source: loc.source }),
       });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.detail || `HTTP ${res.status}`);
-      current = body;
-      addLog(body.updated_existing ? "SOS already active: location updated." : "Sent to Kavach.", "ok");
-      simulateCalls(body.contacts_notified);
-      addLog(`${body.responders_alerted.length} nearby volunteers alerted (approximate area only).`, "ok");
+      if (current.updated_existing) {
+        addLog("SOS already active: location updated.", "ok");
+      } else {
+        const n = current.contacts_notified.length;
+        addLog(n ? `Alerting ${n} trusted contact${n === 1 ? "" : "s"}…` : "No trusted contacts set up: add them in Setup.", n ? "ok" : "warn");
+        addLog(`${current.responders_alerted.length} nearby responder${current.responders_alerted.length === 1 ? "" : "s"} alerted (approximate area only).`, "ok");
+      }
+      if (loc.source === "gps") startLive();
       startPolling();
     } catch (err) {
       addLog(`SOS failed: ${esc(err.message)}. In a real emergency call 112.`, "warn");
@@ -210,23 +324,39 @@
     });
   }
 
-  async function encrypt(obj, spkiB64) {
-    const der = Uint8Array.from(atob(spkiB64), (c) => c.charCodeAt(0));
+  // Keep her position updated while the SOS is on (only while this page stays open).
+  function startLive() {
+    stopLive();
+    if (!navigator.geolocation) return;
+    liveWatch = navigator.geolocation.watchPosition(
+      async (p) => {
+        if (!current || current.status !== "active" || Date.now() - lastLiveSent < LIVE_EVERY_MS) return;
+        lastLiveSent = Date.now();
+        try {
+          const ciphertext = await encrypt({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy });
+          await api(`/sos/${current.sos_id}/location`, { method: "POST", body: JSON.stringify({ ciphertext }) });
+        } catch {
+          /* next update will try again */
+        }
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 5000 }
+    );
+    lastLiveSent = Date.now();
+    addLog("Live location on: updates every 15 s while this screen stays open.", "ok");
+  }
+
+  function stopLive() {
+    if (liveWatch !== null) navigator.geolocation.clearWatch(liveWatch);
+    liveWatch = null;
+  }
+
+  async function encrypt(obj) {
+    spkiCache ||= (await api("/sos/key")).spki;
+    const der = Uint8Array.from(atob(spkiCache), (c) => c.charCodeAt(0));
     const key = await crypto.subtle.importKey("spki", der, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["encrypt"]);
     const ct = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, key, new TextEncoder().encode(JSON.stringify(obj)));
     return btoa(String.fromCharCode(...new Uint8Array(ct)));
-  }
-
-  // Calls are simulated in the prototype; the sequence shows what the real app would do.
-  function simulateCalls(contacts) {
-    if (!contacts.length) {
-      addLog("No trusted contacts set up: add them in Setup.", "warn");
-      return;
-    }
-    contacts.forEach((c, i) => {
-      setTimeout(() => addLog(`Calling ${esc(c.name)} + SMS link <span class="muted">(simulated)</span>`), 600 + i * 1400);
-      setTimeout(() => addLog(i === 0 ? `${esc(c.name)}: no answer` : `${esc(c.name)}: connected`, i === 0 ? "warn" : "ok"), 1300 + i * 1400);
-    });
   }
 
   function startPolling() {
@@ -234,19 +364,19 @@
     pollTimer = setInterval(async () => {
       if (!current || !isOpen) return;
       try {
-        const res = await fetch(`${API}/sos/${current.sos_id}`);
-        if (!res.ok) return;
-        const fresh = await res.json();
-        const snapshot = (c) => JSON.stringify([c.status, c.responders_alerted.map((r) => r.status)]);
+        const fresh = await api(`/sos/${current.sos_id}`);
+        const snapshot = (c) => JSON.stringify([c.status, c.responders_alerted, c.contacts_notified]);
         const before = snapshot(current);
+        const acceptedBefore = new Set(current.responders_alerted.filter((r) => r.status === "accepted").map((r) => r.id));
         current = { ...current, ...fresh };
-        if (current.status !== "active") clearInterval(pollTimer);
-        if (snapshot(current) !== before) {
-          current.responders_alerted.filter((r) => r.status === "accepted").forEach((r) => {
-            if (!log.some((l) => l.text.includes(`${r.name} accepted`))) addLog(`${esc(r.name)} accepted: sees exact location.`, "ok");
-          });
-          renderPanel();
+        current.responders_alerted
+          .filter((r) => r.status === "accepted" && !acceptedBefore.has(r.id))
+          .forEach((r) => addLog(`${esc(r.name)} accepted: sees your exact location.`, "ok"));
+        if (current.status !== "active") {
+          clearInterval(pollTimer);
+          stopLive();
         }
+        if (snapshot(current) !== before) renderPanel();
       } catch {
         /* keep polling */
       }
@@ -255,9 +385,10 @@
 
   async function imSafe() {
     if (!current) return;
-    await fetch(`${API}/sos/${current.sos_id}/cancel`, { method: "POST" });
+    stopLive();
+    await api(`/sos/${current.sos_id}/cancel`, { method: "POST" }).catch(() => {});
     clearInterval(pollTimer);
-    addLog("Marked safe. Sharing stopped.", "ok");
+    addLog("Marked safe. Everyone was told and sharing stopped.", "ok");
     current.status = "cancelled";
     renderPanel();
   }
@@ -267,6 +398,11 @@
     log.push({ t: hhmmss(), text, cls });
     renderPanel();
   }
+
+  const deliveryTag = (label, status) => {
+    const cls = status === "sent" ? "ok" : status === "sending…" ? "" : "warn";
+    return `<span class="dl ${cls}">${label} ${esc(status)}</span>`;
+  };
 
   function renderPanel() {
     if (!isOpen) return;
@@ -279,15 +415,15 @@
       ${c ? `
         <div>
           <p class="section-title">Trusted contacts</p>
-          <div class="who">${c.contacts_notified.map((x) => `<div class="who__row"><span>${esc(x.name)}<small>${esc(x.channel)}</small></span></div>`).join("") || '<p class="note">None set up.</p>'}</div>
-          ${live ? `<a class="btn btn--block portal-btn" style="margin-top:6px" href="${esc(c.track_path)}" target="_blank" rel="noopener">Open live-location link ↗</a>
-          <p class="note">Expires in ${c.track_expires_in_min / 60} h or when she's safe.</p>` : ""}
+          <div class="who">${c.contacts_notified.map((x) => `<div class="who__row"><span>${esc(x.name)}<small>${deliveryTag("Telegram", x.telegram)} ${deliveryTag("Email", x.email)}</small></span></div>`).join("") || '<p class="note">None set up.</p>'}</div>
+          ${live ? `<a class="btn btn--block portal-btn" style="margin-top:6px" href="${esc(c.track_path)}" target="_blank" rel="noopener">Open live-location link ↗</a>` : ""}
         </div>
         <div>
-          <p class="section-title">Nearby volunteers</p>
+          <p class="section-title">Nearby responders</p>
           <div class="who">
-            ${c.responders_alerted.map((r) => `<div class="who__row"><span>${esc(r.name)}<small>${esc(r.role)} · ~${r.distance_km} km</small></span><span class="state ${r.status}">${r.status}</span></div>`).join("")}
+            ${c.responders_alerted.map((r) => `<div class="who__row"><span>${esc(r.name)}<small>~${r.distance_km} km · ${deliveryTag("Telegram", r.telegram)}</small></span><span class="state ${r.status}">${r.status}</span></div>`).join("")}
             ${c.responders_excluded.map((r) => `<div class="who__row"><span>${esc(r.name)}<small>${esc(r.reason)}</small></span><span class="state excluded">not alerted</span></div>`).join("")}
+            ${!c.responders_alerted.length && !c.responders_excluded.length ? '<p class="note">No responders registered yet.</p>' : ""}
           </div>
           <a class="btn btn--block portal-btn" style="margin-top:6px" href="/responder.html" target="_blank" rel="noopener">Open responder view ↗</a>
         </div>
@@ -313,6 +449,7 @@
     window.kavach.deselect("");
     ring();
     renderPanel();
+    loadSetup();
     restoreActive();
   }
 
@@ -320,7 +457,7 @@
   // "I'm safe" is always reachable.
   async function restoreActive() {
     try {
-      const { active } = await (await fetch(`${API}/sos/active`)).json();
+      const { active } = await api("/sos/active");
       if (!active || current?.sos_id === active.sos_id) return;
       current = active;
       const since = new Date(active.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -333,7 +470,8 @@
   }
 
   async function resetDemo() {
-    await fetch(`${API}/sos/demo/reset`, { method: "POST" });
+    stopLive();
+    await api("/sos/demo/reset", { method: "POST" }).catch(() => {});
     clearInterval(pollTimer);
     current = null;
     log = [];

@@ -1,6 +1,8 @@
+import asyncio
 import logging
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -13,14 +15,23 @@ from app.complaint.pdf import build_complaint_pdf
 from app.complaint.retrieval import corpus
 from app.complaint.schemas import ComplaintIn, ComplaintPdfIn
 from app.sos import crypto as sos_crypto
+from app.sos import notify, people
 from app.sos import service as sos
-from app.sos.schemas import RespondIn, SosIn
+from app.sos.schemas import LocationIn, PersonIn, PersonPatch, ProfileIn, RespondIn, SosIn
 from app.vault import report, store
 from app.vault.schemas import EvidenceIn, TamperIn
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
-app = FastAPI(title="Kavach AI", version="0.1.0")
+@asynccontextmanager
+async def lifespan(_app):
+    # Telegram bot: links contacts/responders and handles Accept / Decline buttons.
+    poller = asyncio.create_task(notify.poll_forever())
+    yield
+    poller.cancel()
+
+
+app = FastAPI(title="Kavach AI", version="0.1.0", lifespan=lifespan)
 
 # Lets a browser extension or a separately served frontend call the API during the demo.
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -41,6 +52,8 @@ def health():
         "llm_configured": bool(config.GROQ_API_KEY),
         "model": config.GROQ_MODEL,
         "demo_mode": config.DEMO_MODE,
+        "telegram_on": notify.telegram_on(),
+        "email_on": notify.email_on(),
     }
 
 
@@ -131,16 +144,45 @@ def legal_sections():
     return {"sections": corpus()}
 
 
-# ---------- Discreet SOS + Responder Network (prototype) ----------
+# ---------- Discreet SOS + Responder Network ----------
 
-DEMO_USER = "demo-user"  # no accounts in the prototype; real build: the signed-in user
+DEMO_USER = "demo-user"  # no accounts yet; real build: the signed-in user
+_tasks: set = set()
 
 
-def _sos_call(fn, *args):
+def _background(coro) -> None:
+    """Send alerts without making her wait; keep a reference so the task isn't collected.
+    Only call from async endpoints: create_task needs the running event loop."""
+    t = asyncio.create_task(coro)
+    _tasks.add(t)
+    t.add_done_callback(_tasks.discard)
+
+
+def _public_base(request: Request) -> str:
+    """The address put into links we send out (tunnel URL on a phone, localhost on the laptop)."""
+    if config.PUBLIC_URL:
+        return config.PUBLIC_URL
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    if "trycloudflare.com" in host:  # the tunnel is always https, even if the header says otherwise
+        proto = "https"
+    return f"{proto}://{host}"
+
+
+def _sos_call(fn, *args, **kwargs):
     try:
-        return fn(*args)
+        return fn(*args, **kwargs)
     except sos.SosError as exc:
         raise HTTPException(exc.status, str(exc)) from exc
+    except people.PeopleError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+
+
+def _decrypt(ciphertext: str) -> dict:
+    try:
+        return sos_crypto.decrypt_location(ciphertext)
+    except Exception as exc:
+        raise HTTPException(400, "could not decrypt location") from exc
 
 
 @app.get("/sos/key")
@@ -149,14 +191,30 @@ def sos_key():
     return {"alg": "RSA-OAEP-256", "spki": sos_crypto.public_key_spki_b64()}
 
 
+@app.get("/sos/setup")
+async def sos_setup():
+    """What the SOS setup screen needs: her name, contacts, and which alert channels work."""
+    return {
+        "name": people.her_name(),
+        "contacts": people.list_kind("contact"),
+        "telegram": {"on": notify.telegram_on(), "bot": await notify.bot_username()},
+        "email_on": notify.email_on(),
+        "radius_m": sos.RADIUS_M,
+    }
+
+
+@app.put("/sos/profile")
+def sos_profile(body: ProfileIn):
+    return {"name": people.set_her_name(body.name)}
+
+
 @app.post("/sos")
-def sos_trigger(body: SosIn):
-    try:
-        loc = sos_crypto.decrypt_location(body.ciphertext)
-    except Exception as exc:
-        raise HTTPException(400, "could not decrypt location") from exc
-    contacts = [c.model_dump() for c in body.trusted_contacts]
-    return _sos_call(sos.trigger, DEMO_USER, loc, contacts, body.trigger, body.location_source)
+async def sos_trigger(body: SosIn, request: Request):
+    loc = _decrypt(body.ciphertext)
+    result = _sos_call(sos.trigger, DEMO_USER, loc, body.trigger, body.location_source, _public_base(request))
+    event = result.pop("event")
+    _background(notify.sos_started(result["sos_id"]) if event == "started" else notify.location_updated(result["sos_id"]))
+    return result
 
 
 @app.get("/sos/active")
@@ -167,12 +225,22 @@ def sos_active():
 
 @app.get("/sos/{sos_id}")
 def sos_status(sos_id: str):
-    return _sos_call(sos.status_for_victim, sos_id)
+    return _sos_call(sos.summary, sos_id)
+
+
+@app.post("/sos/{sos_id}/location")
+async def sos_location(sos_id: str, body: LocationIn):
+    """Live GPS from her phone while the SOS is active."""
+    result = _sos_call(sos.update_location, sos_id, _decrypt(body.ciphertext))
+    _background(notify.location_updated(sos_id))
+    return result
 
 
 @app.post("/sos/{sos_id}/cancel")
-def sos_cancel(sos_id: str):
-    return _sos_call(sos.cancel, sos_id)
+async def sos_cancel(sos_id: str):
+    result = _sos_call(sos.cancel, sos_id)
+    _background(notify.sos_ended(sos_id))
+    return result
 
 
 @app.get("/sos/track/{token}")
@@ -180,19 +248,12 @@ def sos_track(token: str):
     return _sos_call(sos.track, token)
 
 
-@app.get("/responders")
-def responders():
-    return {"responders": sos.list_responders(), "radius_m": sos.RADIUS_M}
-
-
-@app.get("/responders/{responder_id}/alerts")
-def responder_alerts(responder_id: str):
-    return {"alerts": _sos_call(sos.alerts_for, responder_id)}
-
-
 @app.post("/sos/{sos_id}/respond")
-def responder_respond(sos_id: str, body: RespondIn):
-    return _sos_call(sos.respond, sos_id, body.responder_id, body.action)
+async def responder_respond(sos_id: str, body: RespondIn):
+    result = _sos_call(sos.respond, sos_id, body.responder_id, body.action)
+    if result["status"] == "accepted" and result["changed"]:
+        _background(notify.responder_accepted(sos_id, body.responder_id))
+    return result
 
 
 @app.post("/sos/demo/reset")
@@ -201,6 +262,54 @@ def sos_demo_reset():
         raise HTTPException(403, "demo mode is off")
     sos.reset()
     return {"ok": True}
+
+
+# ---------- people: her trusted contacts and registered responders ----------
+
+@app.get("/people")
+def people_list(kind: str = "contact"):
+    return {"people": people.list_kind(kind)}
+
+
+@app.post("/people")
+async def people_create(body: PersonIn):
+    p = _sos_call(people.create, body.kind, body.name, body.phone, body.email, body.lat, body.lng)
+    return {**p, "telegram_link": await notify.link_for(p)}
+
+
+@app.patch("/people/{pid}")
+def people_update(pid: str, body: PersonPatch):
+    return _sos_call(people.update, pid, **body.model_dump())
+
+
+@app.delete("/people/{pid}")
+def people_delete(pid: str):
+    _sos_call(people.delete, pid)
+    return {"ok": True}
+
+
+@app.get("/people/{pid}/telegram")
+async def people_telegram(pid: str):
+    p = _sos_call(people.get, pid)
+    return {"link": await notify.link_for(p), "linked": p["telegram_chat_id"] is not None}
+
+
+@app.post("/people/{pid}/verify")
+def people_verify(pid: str, verified: bool = True):
+    """Admin approval of a responder. Demo mode only until there are real admin accounts."""
+    if not config.DEMO_MODE:
+        raise HTTPException(403, "demo mode is off")
+    return _sos_call(people.verify, pid, verified)
+
+
+@app.get("/responders")
+def responders():
+    return {"responders": people.list_kind("responder"), "radius_m": sos.RADIUS_M}
+
+
+@app.get("/responders/{responder_id}/alerts")
+def responder_alerts(responder_id: str):
+    return {"alerts": _sos_call(sos.alerts_for, responder_id)}
 
 
 # Mounted last so API routes take precedence over static files.

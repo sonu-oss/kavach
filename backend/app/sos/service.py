@@ -1,42 +1,29 @@
-"""Discreet SOS + Responder Network (prototype: in-memory state, mock responders, simulated calls).
+"""Discreet SOS + Responder Network.
 
-Safety design that IS real here:
-- Location is read once, at trigger time, and arrives encrypted (see crypto.py).
-- Responders see only an approximate ~1 km area until they accept; then that responder alone
-  gets the exact point. Trusted contacts get a private, expiring live-location link.
-- Only verified, opted-in responders within the radius are alerted.
-- SOS creation is rate limited per user; re-triggering an active SOS updates it instead.
+Real people, stored in the database:
+- Her trusted contacts get her exact live location straight away (Telegram + email, see notify.py).
+- Registered responders who are verified, opted in and within RADIUS_M get an alert with an
+  approximate ~1 km area only. Accepting reveals the exact location to that responder alone.
+
+Safety rules:
+- Location arrives encrypted (crypto.py) and is only read when SOS fires (then live while active).
+- SOS creation is rate limited; re-triggering an active SOS updates it instead of blocking her.
+- An SOS nobody ends expires after TRACK_TTL_S, the same as the live link.
 """
 
 import math
 import secrets
-import threading
 import time
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-RADIUS_M = 3000
+from app import config
+from app.sos import db, people
+
+RADIUS_M = config.SOS_RADIUS_M
 APPROX_RADIUS_M = 1000
 TRACK_TTL_S = 2 * 3600
 RATE_LIMIT = 3  # new SOS per user
 RATE_WINDOW_S = 600
-
-# Mock responders, placed relative to wherever the SOS happens so the demo map works anywhere.
-RESPONDERS = [
-    {"id": "r-asha", "name": "Asha K", "role": "Volunteer, first-aid trained", "verified": True, "opted_in": True,
-     "distance_m": 650, "bearing": 40},
-    {"id": "r-campus", "name": "Campus security desk", "role": "Verified institution", "verified": True,
-     "opted_in": True, "distance_m": 1400, "bearing": 250},
-    {"id": "r-meena", "name": "Meena R", "role": "Off-duty nurse", "verified": True, "opted_in": True,
-     "distance_m": 2300, "bearing": 170},
-    {"id": "r-ravi", "name": "Ravi T", "role": "Signed up, ID not yet verified", "verified": False, "opted_in": True,
-     "distance_m": 1100, "bearing": 100},
-    {"id": "r-kiran", "name": "Kiran P", "role": "Verified, alerts turned off", "verified": True, "opted_in": False,
-     "distance_m": 900, "bearing": 300},
-    {"id": "r-farah", "name": "Farah N", "role": "Volunteer", "verified": True, "opted_in": True,
-     "distance_m": 5200, "bearing": 10},
-]
-RESPONDER_BY_ID = {r["id"]: r for r in RESPONDERS}
 
 
 class SosError(ValueError):
@@ -45,43 +32,8 @@ class SosError(ValueError):
         self.status = status
 
 
-@dataclass
-class Sos:
-    id: str
-    user: str
-    lat: float
-    lng: float
-    accuracy: float
-    approx_lat: float
-    approx_lng: float
-    contacts: list[dict]
-    trigger: str
-    source: str
-    created_at: str
-    track_token: str
-    token_expires: float
-    status: str = "active"  # active | cancelled
-    alerts: dict[str, dict] = field(default_factory=dict)  # responder id -> {status, at, distance_m}
-    updated_at: str = ""
-
-
-_lock = threading.Lock()
-_sos: dict[str, Sos] = {}
-_by_token: dict[str, str] = {}
-_created: dict[str, list[float]] = {}  # user -> creation times
-
-
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
-def _expire_old() -> None:
-    """An SOS nobody ended stops sharing after the same 2 hours as the live link."""
-    now = time.time()
-    for s in _sos.values():
-        if s.status == "active" and now > s.token_expires:
-            s.status = "expired"
-            s.updated_at = _now_iso()
 
 
 # ---------- geometry ----------
@@ -94,27 +46,12 @@ def haversine_m(lat1, lng1, lat2, lng2) -> float:
     return 2 * r * math.asin(math.sqrt(a))
 
 
-def offset(lat, lng, distance_m, bearing_deg) -> tuple[float, float]:
-    r = 6_371_000
-    b, d = math.radians(bearing_deg), distance_m / r
-    p1, l1 = math.radians(lat), math.radians(lng)
-    p2 = math.asin(math.sin(p1) * math.cos(d) + math.cos(p1) * math.sin(d) * math.cos(b))
-    l2 = l1 + math.atan2(math.sin(b) * math.sin(d) * math.cos(p1), math.cos(d) - math.sin(p1) * math.sin(p2))
-    return math.degrees(p2), math.degrees(l2)
-
-
 def approximate(lat, lng) -> tuple[float, float]:
     """Snap to the centre of a ~1.1 km grid cell; the exact point is somewhere inside a 1 km circle."""
     return round(math.floor(lat * 100) / 100 + 0.005, 4), round(math.floor(lng * 100) / 100 + 0.005, 4)
 
 
-def responder_position(r: dict, sos: Sos) -> tuple[float, float]:
-    return offset(sos.lat, sos.lng, r["distance_m"], r["bearing"])
-
-
-# ---------- SOS lifecycle ----------
-
-def trigger(user: str, loc: dict, contacts: list[dict], trigger_kind: str, source: str) -> dict:
+def _parse_location(loc: dict) -> tuple[float, float, float]:
     try:
         lat, lng = float(loc["lat"]), float(loc["lng"])
         accuracy = float(loc.get("accuracy", 0))
@@ -122,162 +59,224 @@ def trigger(user: str, loc: dict, contacts: list[dict], trigger_kind: str, sourc
         raise SosError("location is malformed") from exc
     if not (-90 <= lat <= 90 and -180 <= lng <= 180 and 0 <= accuracy <= 50_000):
         raise SosError("location is out of range")
+    return lat, lng, accuracy
 
-    with _lock:
-        _expire_old()
-        # Re-triggering while an SOS is active refreshes it: never block a person in danger twice.
-        active = next((s for s in _sos.values() if s.user == user and s.status == "active"), None)
+
+def _expire_old() -> None:
+    with db.lock:
+        db.run("UPDATE sos SET status='expired', updated_at=? WHERE status='active' AND token_expires < ?",
+               _now_iso(), time.time())
+
+
+def _get(sos_id: str) -> dict:
+    _expire_old()
+    s = db.one("SELECT * FROM sos WHERE id=?", sos_id)
+    if not s:
+        raise SosError("SOS not found", 404)
+    return s
+
+
+def _active(user: str) -> dict | None:
+    _expire_old()
+    return db.one("SELECT * FROM sos WHERE user=? AND status='active' ORDER BY created_ts DESC LIMIT 1", user)
+
+
+def _km(m: float | None) -> float | None:
+    return None if m is None else round(m / 500) / 2
+
+
+# ---------- SOS lifecycle ----------
+
+def trigger(user: str, loc: dict, trigger_kind: str, source: str, base_url: str) -> dict:
+    """Returns the summary plus 'event': 'started' (notify everyone) or 'updated' (move live pins)."""
+    lat, lng, accuracy = _parse_location(loc)
+    alat, alng = approximate(lat, lng)
+    with db.lock:
+        active = _active(user)
         if active:
-            active.lat, active.lng, active.accuracy = lat, lng, accuracy
-            active.approx_lat, active.approx_lng = approximate(lat, lng)
-            active.updated_at = _now_iso()
-            return summary(active, updated=True)
+            # Re-triggering while an SOS is active refreshes it: never block a person in danger twice.
+            db.run("UPDATE sos SET lat=?, lng=?, accuracy=?, approx_lat=?, approx_lng=?, updated_at=? WHERE id=?",
+                   lat, lng, accuracy, alat, alng, _now_iso(), active["id"])
+            return {**summary(active["id"]), "updated_existing": True, "event": "updated"}
 
-        now = time.time()
-        recent = [t for t in _created.get(user, []) if now - t < RATE_WINDOW_S]
-        if len(recent) >= RATE_LIMIT:
+        recent = db.one("SELECT COUNT(*) AS n FROM sos WHERE user=? AND created_ts > ?", user, time.time() - RATE_WINDOW_S)
+        if recent["n"] >= RATE_LIMIT:
             raise SosError("Too many SOS alerts in 10 minutes. Call 112 directly.", 429)
-        _created[user] = recent + [now]
 
-        token = secrets.token_urlsafe(16)
-        sos = Sos(
-            id=secrets.token_hex(6), user=user, lat=lat, lng=lng, accuracy=accuracy,
-            approx_lat=0, approx_lng=0, contacts=contacts, trigger=trigger_kind, source=source,
-            created_at=_now_iso(), track_token=token, token_expires=now + TRACK_TTL_S,
-        )
-        sos.approx_lat, sos.approx_lng = approximate(lat, lng)
-        sos.updated_at = sos.created_at
-        for r in RESPONDERS:
-            rl, rg = responder_position(r, sos)
-            dist = haversine_m(lat, lng, rl, rg)
-            if r["verified"] and r["opted_in"] and dist <= RADIUS_M:
-                sos.alerts[r["id"]] = {"status": "pending", "at": None, "distance_m": dist}
-        _sos[sos.id] = sos
-        _by_token[token] = sos.id
-        return summary(sos, updated=False)
+        sos_id, now = secrets.token_hex(6), time.time()
+        with db.connect() as c:
+            c.execute("BEGIN")
+            c.execute(
+                "INSERT INTO sos (id, user, lat, lng, accuracy, approx_lat, approx_lng, trigger, source, status,"
+                " track_token, token_expires, base_url, created_ts, created_at, updated_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)",
+                (sos_id, user, lat, lng, accuracy, alat, alng, trigger_kind, source, secrets.token_urlsafe(16),
+                 now + TRACK_TTL_S, base_url, now, _now_iso(), _now_iso()),
+            )
+            for p in c.execute("SELECT * FROM people WHERE kind='contact'").fetchall():
+                c.execute("INSERT INTO alerts (sos_id, person_id, role, status, at) VALUES (?, ?, 'contact', 'notified', ?)",
+                          (sos_id, p["id"], _now_iso()))
+            for p in c.execute("SELECT * FROM people WHERE kind='responder'").fetchall():
+                if _eligible(dict(p), lat, lng)[0]:
+                    dist = haversine_m(lat, lng, p["lat"], p["lng"])
+                    c.execute("INSERT INTO alerts (sos_id, person_id, role, status, distance_m)"
+                              " VALUES (?, ?, 'responder', 'pending', ?)", (sos_id, p["id"], dist))
+            c.execute("COMMIT")
+    return {**summary(sos_id), "updated_existing": False, "event": "started"}
 
 
-def summary(sos: Sos, updated: bool) -> dict:
+def _eligible(p: dict, lat: float, lng: float) -> tuple[bool, str]:
+    if not p["verified"]:
+        return False, "not verified yet"
+    if not p["opted_in"]:
+        return False, "alerts turned off"
+    if p["lat"] is None:
+        return False, "no location shared"
+    dist = haversine_m(lat, lng, p["lat"], p["lng"])
+    if dist > RADIUS_M:
+        return False, f"{dist / 1000:.1f} km away, outside {RADIUS_M / 1000:.0f} km"
+    return True, ""
+
+
+def update_location(sos_id: str, loc: dict) -> dict:
+    """Live GPS from her phone while the SOS is active."""
+    lat, lng, accuracy = _parse_location(loc)
+    s = _get(sos_id)
+    if s["status"] != "active":
+        raise SosError("this SOS has ended", 409)
+    alat, alng = approximate(lat, lng)
+    with db.lock:
+        db.run("UPDATE sos SET lat=?, lng=?, accuracy=?, approx_lat=?, approx_lng=?, updated_at=? WHERE id=?",
+               lat, lng, accuracy, alat, alng, _now_iso(), sos_id)
+    return {"ok": True, "updated_at": _get(sos_id)["updated_at"]}
+
+
+def summary(sos_id: str) -> dict:
+    s = _get(sos_id)
+    alerts = db.rows(
+        "SELECT a.*, p.name, p.telegram_chat_id FROM alerts a JOIN people p ON p.id=a.person_id WHERE a.sos_id=?", sos_id)
+    alerted = {a["person_id"] for a in alerts}
     excluded = []
-    for r in RESPONDERS:
-        if r["id"] in sos.alerts:
-            continue
-        rl, rg = responder_position(r, sos)
-        dist = haversine_m(sos.lat, sos.lng, rl, rg)
-        reason = ("ID not verified" if not r["verified"] else "has not opted in to alerts" if not r["opted_in"]
-                  else f"{dist / 1000:.1f} km away, outside {RADIUS_M / 1000:.0f} km")
-        excluded.append({"id": r["id"], "name": r["name"], "reason": reason})
+    for p in db.rows("SELECT * FROM people WHERE kind='responder'"):
+        if p["id"] not in alerted:
+            ok, reason = _eligible(p, s["lat"], s["lng"])
+            excluded.append({"id": p["id"], "name": p["name"], "reason": reason or "registered after this SOS"})
     return {
-        "sos_id": sos.id,
-        "updated_existing": updated,
-        "status": sos.status,
-        "created_at": sos.created_at,
-        "updated_at": sos.updated_at,
-        "track_path": f"/track.html?t={sos.track_token}",
+        "sos_id": s["id"],
+        "status": s["status"],
+        "created_at": s["created_at"],
+        "updated_at": s["updated_at"],
+        "track_path": f"/track.html?t={s['track_token']}",
         "track_expires_in_min": TRACK_TTL_S // 60,
         "contacts_notified": [
-            {"name": c["name"], "phone": c.get("phone", ""), "channel": "SMS + call (simulated)"} for c in sos.contacts
+            {"id": a["person_id"], "name": a["name"], "telegram": a["telegram"] or "sending…", "email": a["email"] or "sending…"}
+            for a in alerts if a["role"] == "contact"
         ],
-        "approx_area": {"lat": sos.approx_lat, "lng": sos.approx_lng, "radius_m": APPROX_RADIUS_M},
+        "approx_area": {"lat": s["approx_lat"], "lng": s["approx_lng"], "radius_m": APPROX_RADIUS_M},
         "responders_alerted": [
-            {"id": rid, "name": RESPONDER_BY_ID[rid]["name"], "role": RESPONDER_BY_ID[rid]["role"],
-             "distance_km": round(a["distance_m"] / 500) / 2, "status": a["status"]}
-            for rid, a in sos.alerts.items()
+            {"id": a["person_id"], "name": a["name"], "distance_km": _km(a["distance_m"]), "status": a["status"],
+             "telegram": a["telegram"] or "sending…"}
+            for a in alerts if a["role"] == "responder"
         ],
         "responders_excluded": excluded,
     }
 
 
-def get(sos_id: str) -> Sos:
-    _expire_old()
-    sos = _sos.get(sos_id)
-    if not sos:
-        raise SosError("SOS not found", 404)
-    return sos
-
-
 def cancel(sos_id: str) -> dict:
-    with _lock:
-        sos = get(sos_id)
-        sos.status = "cancelled"
-        sos.updated_at = _now_iso()
-        return {"sos_id": sos.id, "status": sos.status}
-
-
-def status_for_victim(sos_id: str) -> dict:
-    return summary(get(sos_id), updated=False)
+    _get(sos_id)
+    with db.lock:
+        db.run("UPDATE sos SET status='cancelled', updated_at=? WHERE id=? AND status='active'", _now_iso(), sos_id)
+    return {"sos_id": sos_id, "status": _get(sos_id)["status"]}
 
 
 def active_for(user: str) -> dict | None:
     """Lets her SOS screen pick up an alert that is still running (e.g. after a page reload)."""
-    _expire_old()
-    sos = next((s for s in _sos.values() if s.user == user and s.status == "active"), None)
-    return summary(sos, updated=False) if sos else None
+    a = _active(user)
+    return summary(a["id"]) if a else None
 
 
 def track(token: str) -> dict:
     _expire_old()
-    sos_id = _by_token.get(token)
-    sos = _sos.get(sos_id) if sos_id else None
-    if not sos or time.time() > sos.token_expires:
+    s = db.one("SELECT * FROM sos WHERE track_token=?", token)
+    if not s or s["status"] == "expired":
         raise SosError("This location link is invalid or has expired.", 404)
-    if sos.status != "active":
-        return {"status": sos.status, "updated_at": sos.updated_at}
+    if s["status"] != "active":
+        return {"status": s["status"], "updated_at": s["updated_at"]}
+    on_way = db.rows("SELECT p.name FROM alerts a JOIN people p ON p.id=a.person_id"
+                     " WHERE a.sos_id=? AND a.role='responder' AND a.status='accepted'", s["id"])
     return {
-        "status": sos.status,
-        "lat": sos.lat, "lng": sos.lng, "accuracy": sos.accuracy,
-        "created_at": sos.created_at, "updated_at": sos.updated_at,
-        "responders_on_the_way": [RESPONDER_BY_ID[r]["name"] for r, a in sos.alerts.items() if a["status"] == "accepted"],
+        "status": s["status"], "name": people.her_name(),
+        "lat": s["lat"], "lng": s["lng"], "accuracy": s["accuracy"],
+        "created_at": s["created_at"], "updated_at": s["updated_at"],
+        "responders_on_the_way": [r["name"] for r in on_way],
     }
 
 
 # ---------- responders ----------
 
-def list_responders() -> list[dict]:
-    return [{k: r[k] for k in ("id", "name", "role", "verified", "opted_in")} for r in RESPONDERS]
-
-
 def alerts_for(responder_id: str) -> list[dict]:
-    if responder_id not in RESPONDER_BY_ID:
-        raise SosError("unknown responder", 404)
+    me = people.get(responder_id)
     _expire_old()
     out = []
-    for sos in sorted(_sos.values(), key=lambda s: s.created_at, reverse=True):
-        a = sos.alerts.get(responder_id)
-        if not a:
-            continue
-        me = responder_position(RESPONDER_BY_ID[responder_id], sos)
+    mine = db.rows("SELECT a.* FROM alerts a JOIN sos s ON s.id=a.sos_id"
+                   " WHERE a.person_id=? AND a.role='responder' ORDER BY s.created_ts DESC", responder_id)
+    for a in mine:
+        s = _get(a["sos_id"])
+        others = db.one("SELECT COUNT(*) AS n FROM alerts WHERE sos_id=? AND role='responder'"
+                        " AND status='accepted' AND person_id<>?", s["id"], responder_id)["n"]
         item = {
-            "sos_id": sos.id,
-            "created_at": sos.created_at,
-            "updated_at": sos.updated_at,
-            "sos_status": sos.status,
+            "sos_id": s["id"],
+            "created_at": s["created_at"],
+            "updated_at": s["updated_at"],
+            "sos_status": s["status"],
             "my_status": a["status"],
-            "my_position": {"lat": me[0], "lng": me[1]},
-            "approx_area": {"lat": sos.approx_lat, "lng": sos.approx_lng, "radius_m": APPROX_RADIUS_M},
-            "approx_distance_km": round(a["distance_m"] / 500) / 2,
-            "others_accepted": sum(1 for r, x in sos.alerts.items() if r != responder_id and x["status"] == "accepted"),
+            "my_position": {"lat": me["lat"], "lng": me["lng"]} if me["lat"] is not None else None,
+            "approx_area": {"lat": s["approx_lat"], "lng": s["approx_lng"], "radius_m": APPROX_RADIUS_M},
+            "approx_distance_km": _km(a["distance_m"]),
+            "others_accepted": others,
         }
         # The exact point goes only to a responder who accepted, and only while the SOS is active.
-        if a["status"] == "accepted" and sos.status == "active":
-            item["exact"] = {"lat": sos.lat, "lng": sos.lng, "accuracy": sos.accuracy}
+        if a["status"] == "accepted" and s["status"] == "active":
+            item["exact"] = {"lat": s["lat"], "lng": s["lng"], "accuracy": s["accuracy"]}
         out.append(item)
     return out
 
 
 def respond(sos_id: str, responder_id: str, action: str) -> dict:
-    with _lock:
-        sos = get(sos_id)
-        if responder_id not in sos.alerts:
-            raise SosError("this responder was not alerted for this SOS", 403)
-        if sos.status != "active":
-            raise SosError("this SOS has ended", 409)
-        sos.alerts[responder_id].update(status="accepted" if action == "accept" else "declined", at=_now_iso())
-    return {"ok": True, "status": sos.alerts[responder_id]["status"]}
+    s = _get(sos_id)
+    alert = db.one("SELECT * FROM alerts WHERE sos_id=? AND person_id=? AND role='responder'", sos_id, responder_id)
+    if not alert:
+        raise SosError("this responder was not alerted for this SOS", 403)
+    if s["status"] != "active":
+        raise SosError("this SOS has ended", 409)
+    status = "accepted" if action == "accept" else "declined"
+    changed = alert["status"] != status
+    with db.lock:
+        db.run("UPDATE alerts SET status=?, at=? WHERE sos_id=? AND person_id=?", status, _now_iso(), sos_id, responder_id)
+    return {"ok": True, "status": status, "changed": changed}
+
+
+# ---------- used by notify.py ----------
+
+def get_sos(sos_id: str) -> dict:
+    return _get(sos_id)
+
+
+def deliveries(sos_id: str) -> list[dict]:
+    return db.rows("SELECT a.*, p.name, p.email AS person_email, p.telegram_chat_id FROM alerts a"
+                   " JOIN people p ON p.id=a.person_id WHERE a.sos_id=?", sos_id)
+
+
+def record_delivery(sos_id: str, person_id: str, **fields) -> None:
+    allowed = {k: v for k, v in fields.items() if k in ("telegram", "email", "live_message_id")}
+    if allowed:
+        cols = ", ".join(f"{k}=?" for k in allowed)
+        with db.lock:
+            db.run(f"UPDATE alerts SET {cols} WHERE sos_id=? AND person_id=?", *allowed.values(), sos_id, person_id)
 
 
 def reset() -> None:
-    with _lock:
-        _sos.clear()
-        _by_token.clear()
-        _created.clear()
+    """Demo only: clear SOS history (keeps contacts and responders)."""
+    with db.lock:
+        db.run("DELETE FROM alerts")
+        db.run("DELETE FROM sos")

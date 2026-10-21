@@ -260,21 +260,25 @@
             </ol>
             <button id="ring-btn" type="button" class="btn btn--primary btn--block">📞 Ring the fake call</button>
             <p class="note">Real app: power-button shortcut.</p>
-            <details class="details-card">
-              <summary><strong>Setup</strong> <span class="muted small">Saved in this browser only</span></summary>
+            <details class="details-card" id="sos-setup">
+              <summary><strong>Setup</strong> <span class="muted small" id="channels-status"></span></summary>
               <div class="details-grid">
+                <label class="wide">Your name in alerts<input id="her-name" maxlength="60" placeholder="e.g. Priya" autocomplete="off" /></label>
                 <label class="wide">Caller name shown<input id="caller-input" maxlength="20" /></label>
-                <label>Trusted contact 1<input data-contact="0" data-k="name" placeholder="Name" /></label>
-                <label>Phone<input data-contact="0" data-k="phone" placeholder="Phone" /></label>
-                <label>Trusted contact 2<input data-contact="1" data-k="name" placeholder="Name" /></label>
-                <label>Phone<input data-contact="1" data-k="phone" placeholder="Phone" /></label>
                 <label class="wide">Location
                   <select id="loc-mode">
-                    <option value="demo">Demo location (Koramangala, Bengaluru)</option>
-                    <option value="gps">This device's real location (asks permission)</option>
+                    <option value="gps">Real GPS, live while SOS is on</option>
+                    <option value="demo">Demo location (Koramangala)</option>
                   </select>
                 </label>
               </div>
+              <p class="section-title" style="margin-top:12px">Trusted contacts</p>
+              <ul class="contact-setup" id="contact-setup"></ul>
+              <form class="add-contact" id="add-contact">
+                <input name="name" placeholder="Name" required maxlength="60" autocomplete="off" />
+                <input name="email" type="email" placeholder="Email (backup)" maxlength="120" autocomplete="off" />
+                <button class="btn" type="submit">Add</button>
+              </form>
             </details>
           </div>
         </div>
@@ -318,6 +322,7 @@
   <script src="import.js"></script>
   <script src="vault.js"></script>
   <script src="complaint.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" defer></script>
   <script src="sos.js"></script>
   <script src="nav.js"></script>
 </body>
