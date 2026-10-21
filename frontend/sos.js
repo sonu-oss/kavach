@@ -42,16 +42,10 @@
   let pollTimer = null;
   let current = null; // last /sos response
   let log = [];
-  let demoMode = false;
   let liveWatch = null;
   let lastLiveSent = 0;
   let spkiCache = null;
   let setup = { contacts: [], telegram: { on: false, bot: null }, email_on: false };
-
-  fetch(`${API}/health`)
-    .then((r) => r.json())
-    .then((h) => (demoMode = !!h.demo_mode))
-    .catch(() => {});
 
   const esc = (s) =>
     String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -455,7 +449,7 @@
           <a class="btn btn--block portal-btn" style="margin-top:6px" href="/responder.html" target="_blank" rel="noopener">Open responder view ↗</a>
         </div>
         ${live ? `<button type="button" class="btn btn--block safe-btn" data-safe>I'm safe · stop sharing</button>` : `<p class="note">SOS ended.</p>`}` : ""}
-      ${demoMode ? `<button type="button" class="btn btn--ghost btn--block" data-sos-reset>Reset SOS demo</button>` : ""}
+      ${!live ? `<button type="button" class="btn btn--ghost btn--block" data-sos-reset>Clear SOS history</button>` : ""}
     </div>`;
   }
 
@@ -499,14 +493,19 @@
   }
 
   async function resetDemo() {
+    if (!confirm("Clear past SOS alerts? Your contacts and settings stay.")) return;
+    try {
+      await api("/sos/history", { method: "DELETE" });
+    } catch (err) {
+      return window.kavach.toast(err.message);
+    }
     stopLive();
-    await api("/sos/demo/reset", { method: "POST" }).catch(() => {});
     clearInterval(pollTimer);
     current = null;
     log = [];
     ring();
     renderPanel();
-    window.kavach.toast("SOS demo reset");
+    window.kavach.toast("SOS history cleared");
   }
 
   function close() {

@@ -312,7 +312,6 @@
         <div class="demo-actions">
           <button type="button" class="btn" data-demo="tamper">Edit a message</button>
           <button type="button" class="btn" data-demo="rehash">Edit + re-seal it</button>
-          <button type="button" class="btn btn--ghost" data-demo="reset">Reset vault</button>
         </div>
       </div>` : ""}
     </div>`;
@@ -322,14 +321,6 @@
     const action = e.target.closest("[data-demo]")?.dataset.demo;
     if (!action || !isOpen) return;
     try {
-      if (action === "reset") {
-        if (!confirm("Delete every record in the Vault? This is for demo rehearsals.")) return;
-        await api("/evidence/demo/reset", { method: "POST" });
-        Object.values(window.kavach.results).forEach((r) => delete r.saved);
-        await load({ verified: true });
-        window.kavach.toast("Vault cleared");
-        return;
-      }
       const out = await api("/evidence/demo/tamper", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -346,6 +337,18 @@
   els.body.addEventListener("click", (e) => {
     const b = e.target.closest("[data-complaint]");
     if (b) window.kavachComplaint.open(b.dataset.complaint, b.dataset.title);
+  });
+
+  document.querySelector("#clear-vault").addEventListener("click", async () => {
+    if (!confirm("Delete all sealed evidence? This can't be undone. Export the PDF report first if you need it.")) return;
+    try {
+      await api("/evidence", { method: "DELETE" });
+      Object.values(window.kavach.results).forEach((r) => delete r.saved);
+      await load({ verified: true });
+      window.kavach.toast("Vault cleared");
+    } catch (err) {
+      window.kavach.toast(err.message);
+    }
   });
 
   els.btn.addEventListener("click", open);

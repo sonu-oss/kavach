@@ -88,6 +88,7 @@ def delete(pid: str) -> None:
     get(pid)
     with db.lock:
         db.run("DELETE FROM people WHERE id=?", pid)
+        db.run("DELETE FROM alerts WHERE person_id=?", pid)
 
 
 def link_telegram(code: str, chat_id: int) -> dict | None:

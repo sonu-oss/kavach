@@ -350,3 +350,20 @@ def test_links_use_the_public_address_not_localhost(client):
     sos_id = client.post("/sos", json={"ciphertext": enc()}, headers={"host": "localhost:8000"}).json()["sos_id"]
     assert service.get_sos(sos_id)["base_url"] == "https://abc-def.trycloudflare.com"
     main._last_public_base = None
+
+
+def test_she_can_clear_sos_history_but_not_while_sos_is_on(client, monkeypatch):
+    monkeypatch.setattr(config, "DEMO_MODE", False)
+    sid = send_sos(client).json()["sos_id"]
+    assert client.delete("/sos/history").status_code == 409
+    client.post(f"/sos/{sid}/cancel")
+    assert client.delete("/sos/history").status_code == 200
+    assert client.get(f"/sos/{sid}").status_code == 404
+
+
+def test_responder_can_leave_the_network(client):
+    rid = responder(client, "Asha")
+    sid = send_sos(client).json()["sos_id"]
+    assert client.delete(f"/people/{rid}").status_code == 200
+    assert all(r["id"] != rid for r in client.get("/responders").json()["responders"])
+    assert all(r["name"] != "Asha" for r in client.get(f"/sos/{sid}").json()["responders_alerted"])

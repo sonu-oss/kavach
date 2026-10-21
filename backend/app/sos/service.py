@@ -308,7 +308,15 @@ def record_delivery(sos_id: str, person_id: str, **fields) -> None:
 
 
 def reset() -> None:
-    """Demo only: clear SOS history (keeps contacts and responders)."""
+    """Clears SOS history (keeps contacts and responders)."""
     with db.lock:
         db.run("DELETE FROM alerts")
         db.run("DELETE FROM sos")
+
+
+def clear_history(user: str) -> None:
+    """Her choice to wipe past SOS alerts. Refused while one is running, so nobody stops getting her location by accident."""
+    _expire_old()
+    if _active(user):
+        raise SosError("Your SOS is still on. Tap I'm safe first.", 409)
+    reset()

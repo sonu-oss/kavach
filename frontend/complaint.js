@@ -96,6 +96,18 @@
     window.kavach.toast("Your details were cleared from this device");
   });
 
+  // The draft only lives on this screen; deleting it leaves the sealed evidence alone.
+  document.querySelector("#delete-draft").addEventListener("click", () => {
+    if (!confirm("Delete this complaint draft?")) return;
+    data = null;
+    edited = false;
+    els.letter.value = "";
+    close();
+    window.kavach.deselect("Draft deleted. Your evidence is still in the Vault.");
+    window.kavachMobile?.show("list");
+    window.kavach.toast("Draft deleted");
+  });
+
   // ---------- open ----------
   async function open(captureId, title) {
     window.kavachImport?.close();

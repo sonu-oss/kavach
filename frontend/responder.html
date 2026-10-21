@@ -152,6 +152,7 @@
             ${!r.telegram_linked && tgLink ? `<button type="button" class="btn btn--primary" id="tg">Connect Telegram</button>` : `<span></span>`}
           </div>
           <div id="tg-box"></div>
+          <button type="button" class="btn btn--ghost small" id="leave">Leave the network</button>
         </div>`;
         $("#signout").onclick = () => { me = null; store.set(null); $("#who").value = ""; renderMe(); refresh(); };
         $("#optin").onchange = async (e) => { await api(`/people/${r.id}`, { method: "PATCH", body: JSON.stringify({ opted_in: e.target.checked }) }); loadResponders(); };
@@ -161,6 +162,15 @@
             await api(`/people/${r.id}`, { method: "PATCH", body: JSON.stringify(p) });
             loadResponders();
           } catch (err) { alert(err.message); }
+        };
+        $("#leave").onclick = async () => {
+          if (!confirm("Leave the responder network? Your name, location and alerts are deleted.")) return;
+          try {
+            await api(`/people/${r.id}`, { method: "DELETE" });
+          } catch (err) { return alert(err.message); }
+          me = null; store.set(null);
+          await loadResponders();
+          refresh();
         };
         const tg = $("#tg");
         if (tg) tg.onclick = () => showTelegram(tgLink);

@@ -170,3 +170,15 @@ def test_future_dates_and_blank_platform_are_rejected():
         capture(incident_date=(date.today() + timedelta(days=5)).isoformat())
     with pytest.raises(ValidationError):
         EvidenceIn(platform="  ", conversation="x", messages=[{"ref": "1", "sender": "a", "text": "b"}])
+
+
+def test_she_can_clear_the_vault_without_demo_mode(monkeypatch):
+    from app.main import app
+
+    client = TestClient(app)
+    monkeypatch.setattr(config, "DEMO_MODE", False)
+    assert client.post("/evidence", json=capture().model_dump()).status_code == 200
+    assert client.get("/evidence").json()["records"]
+    assert client.delete("/evidence").status_code == 200
+    assert client.get("/evidence").json()["records"] == []
+    assert not list((config.DATA_DIR / "screenshots").glob("*"))

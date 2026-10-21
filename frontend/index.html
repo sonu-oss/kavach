@@ -64,7 +64,7 @@
     <aside class="contacts">
       <header class="contacts__head">
         <span class="eyebrow">Chats</span>
-        <span class="muted small">demo inbox</span>
+        <button type="button" id="clear-chats" class="btn btn--ghost small">Clear</button>
       </header>
       <div class="contacts__import">
         <button id="import-btn" class="btn btn--block import-btn" type="button">
@@ -175,6 +175,7 @@
         <div class="vault__toolbar">
           <button id="verify-btn" type="button" class="btn">Verify chain</button>
           <a id="report-btn" class="btn" href="/evidence/report" download="kavach-evidence-report.pdf">Export PDF report</a>
+          <button id="clear-vault" type="button" class="btn btn--ghost">Clear vault</button>
         </div>
         <div id="vault-body" class="vault__body"></div>
       </section>
@@ -192,6 +193,7 @@
           <button id="copy-letter" type="button" class="btn">Copy letter</button>
           <button id="letter-pdf" type="button" class="btn">Download PDF</button>
           <button id="file-report" type="button" class="btn btn--primary">Report on cybercrime.gov.in</button>
+          <button id="delete-draft" type="button" class="btn btn--ghost">Delete draft</button>
         </div>
         <div class="complaint__body" id="complaint-body">
           <details class="details-card" id="my-details">

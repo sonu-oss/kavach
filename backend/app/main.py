@@ -111,6 +111,13 @@ def evidence_screenshot(digest: str):
     return FileResponse(path)
 
 
+@app.delete("/evidence")
+def clear_evidence():
+    """Deletes everything in the Vault. Asked for by her, after use."""
+    store.clear()
+    return {"ok": True}
+
+
 @app.post("/evidence/demo/tamper")
 def demo_tamper(body: TamperIn):
     if not config.DEMO_MODE:
@@ -278,6 +285,12 @@ async def responder_respond(sos_id: str, body: RespondIn):
     if result["status"] == "accepted" and result["changed"]:
         _background(notify.responder_accepted(sos_id, body.responder_id))
     return result
+
+
+@app.delete("/sos/history")
+def sos_clear_history():
+    _sos_call(sos.clear_history, DEMO_USER)
+    return {"ok": True}
 
 
 @app.post("/sos/demo/reset")

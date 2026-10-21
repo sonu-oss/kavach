@@ -263,8 +263,12 @@ def demo_tamper(record_id: int | None, rehash: bool) -> dict:
     return {"record_id": record_id, "before": before, "after": row["message_text"], "rehash": rehash}
 
 
-def demo_reset() -> None:
+def clear() -> None:
+    """Deletes every record and screenshot. Her choice, e.g. after the case is closed."""
     with _lock, connect() as conn:
         conn.execute("DELETE FROM evidence")
     for f in shots_dir().glob("*"):
         f.unlink()
+
+
+demo_reset = clear

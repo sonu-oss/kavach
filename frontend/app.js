@@ -323,6 +323,19 @@
     els.shield.innerHTML = `<div class="empty"><p>${message}</p></div>`;
   }
 
+  // Removes imported screenshots, typed messages and risk results, so the inbox is back to the demo chats.
+  document.querySelector("#clear-chats").addEventListener("click", () => {
+    if (!confirm("Clear scanned chats and results? Sealed evidence stays in the Vault.")) return;
+    const fresh = structuredClone(window.SEED_CONVERSATIONS).map((c) => ({
+      ...c,
+      messages: c.messages.map((m, i) => ({ ...m, id: `${c.id}-${i + 1}` })),
+    }));
+    conversations.splice(0, conversations.length, ...fresh);
+    Object.keys(results).forEach((k) => delete results[k]);
+    deselect("Chats cleared. Pick a chat to scan.");
+    toast("Chats cleared");
+  });
+
   // Opens the chat that is already selected, or the first threatening demo chat.
   function openShield() {
     openChat(activeId || conversations.find((c) => c.id === "rahul")?.id || conversations[0].id);
