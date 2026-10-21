@@ -12,7 +12,6 @@
   const $ = (sel) => document.querySelector(sel);
   const HOLD_MS = 2000;
   const LIVE_EVERY_MS = 15000; // send a live position at most this often
-  const DEMO_LOCATION = { lat: 12.9352, lng: 77.6245, accuracy: 30 }; // Koramangala, Bengaluru
   const SETTINGS_KEY = "kavach.sosSettings";
 
   const els = {
@@ -29,7 +28,6 @@
     lockDate: $("#lock-date"),
     missed: $("#missed-text"),
     callerInput: $("#caller-input"),
-    locMode: $("#loc-mode"),
     herName: $("#her-name"),
     channels: $("#channels-status"),
     contactList: $("#contact-setup"),
@@ -77,24 +75,20 @@
       return {};
     }
   }
-  const settings = { caller: "Mom", locMode: "gps", ...loadSettings() };
+  // Location always comes from this device's GPS: there is no demo / fixed location.
+  const settings = { caller: "Mom", ...loadSettings() };
   function saveSettings() {
     try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ caller: settings.caller, locMode: settings.locMode }));
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ caller: settings.caller }));
     } catch {
       /* private mode: settings just won't persist */
     }
   }
   els.callerInput.value = settings.caller;
-  els.locMode.value = settings.locMode;
   els.callerInput.addEventListener("input", () => {
     settings.caller = els.callerInput.value.trim() || "Mom";
     saveSettings();
     applyCaller();
-  });
-  els.locMode.addEventListener("change", () => {
-    settings.locMode = els.locMode.value;
-    saveSettings();
   });
 
   function applyCaller() {
@@ -227,11 +221,26 @@
   setInterval(tickClock, 15000);
   tickClock();
 
+  // On a real phone the fake call takes over the whole screen; on a laptop it stays in the mockup.
+  const isPhone = window.matchMedia("(max-width: 820px)");
+
   function ring() {
     clearInterval(callTimer);
     applyCaller();
     show("incoming");
   }
+
+  function startCall() {
+    ring();
+    if (isPhone.matches) document.body.classList.add("calling");
+  }
+
+  // Tapping the lock screen (after the call ends) returns to the app.
+  els.phone.querySelector('[data-screen="home"]').addEventListener("click", () => {
+    if (!document.body.classList.contains("calling")) return;
+    document.body.classList.remove("calling");
+    ring();
+  });
 
   function goHome() {
     clearInterval(callTimer);
@@ -277,7 +286,7 @@
     }, 500);
   });
   els.end.addEventListener("click", goHome);
-  els.ring.addEventListener("click", ring);
+  els.ring.addEventListener("click", startCall);
 
   // ---------- the silent SOS ----------
   async function sendSos(trigger) {
@@ -285,14 +294,19 @@
     current = null;
     addLog(`Decline held ${HOLD_MS / 1000} s. Screen shows a normal declined call.`);
     try {
-      const loc = await readLocationOnce();
-      addLog(`Location read (${loc.source === "gps" ? "GPS" : "demo"}, ±${Math.round(loc.accuracy)} m).`, "ok");
-      const ciphertext = await encrypt({ lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy });
-      addLog(`Encrypted on the phone: <code>${esc(ciphertext.slice(0, 20))}…</code>`, "ok");
+      const loc = await readLocation();
+      let ciphertext = null;
+      if (loc) {
+        addLog(`Location read (GPS, ±${Math.round(loc.accuracy)} m).`, "ok");
+        ciphertext = await encrypt({ lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy });
+        addLog(`Encrypted on the phone: <code>${esc(ciphertext.slice(0, 20))}…</code>`, "ok");
+      } else {
+        addLog("No GPS fix yet. Sending the SOS now; your location follows as soon as GPS works.", "warn");
+      }
 
       current = await api("/sos", {
         method: "POST",
-        body: JSON.stringify({ ciphertext, trigger, location_source: loc.source }),
+        body: JSON.stringify({ ciphertext, trigger, location_source: loc ? "gps" : "none" }),
       });
       if (current.updated_existing) {
         addLog("SOS already active: location updated.", "ok");
@@ -301,27 +315,32 @@
         addLog(n ? `Alerting ${n} trusted contact${n === 1 ? "" : "s"}…` : "No trusted contacts set up: add them in Setup.", n ? "ok" : "warn");
         addLog(`${current.responders_alerted.length} nearby responder${current.responders_alerted.length === 1 ? "" : "s"} alerted (approximate area only).`, "ok");
       }
-      if (loc.source === "gps") startLive();
+      startLive();
       startPolling();
     } catch (err) {
       addLog(`SOS failed: ${esc(err.message)}. In a real emergency call 112.`, "warn");
     }
   }
 
-  function readLocationOnce() {
-    if (settings.locMode !== "gps" || !navigator.geolocation) {
-      return Promise.resolve({ ...DEMO_LOCATION, source: "demo" });
-    }
-    return new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy, source: "gps" }),
-        (err) => {
-          addLog(`GPS unavailable (${esc(err.message)}); using the demo location.`, "warn");
-          resolve({ ...DEMO_LOCATION, source: "demo" });
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-      );
-    });
+  // Only real GPS, never a made-up position that could send help to the wrong place.
+  // Precise fix first, then a quicker approximate one; otherwise null (SOS still goes out).
+  async function readLocation() {
+    if (!navigator.geolocation) return null;
+    const attempt = (opts) =>
+      new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy, source: "gps" }),
+          (err) => {
+            addLog(`GPS: ${esc(err.message || "no fix")}`, "warn");
+            resolve(null);
+          },
+          opts
+        );
+      });
+    return (
+      (await attempt({ enableHighAccuracy: true, timeout: 8000, maximumAge: 0 })) ||
+      (await attempt({ enableHighAccuracy: false, timeout: 10000, maximumAge: 120000 }))
+    );
   }
 
   // Keep her position updated while the SOS is on (only while this page stays open).
@@ -330,11 +349,17 @@
     if (!navigator.geolocation) return;
     liveWatch = navigator.geolocation.watchPosition(
       async (p) => {
-        if (!current || current.status !== "active" || Date.now() - lastLiveSent < LIVE_EVERY_MS) return;
+        if (!current || current.status !== "active") return;
+        // The first fix after an SOS without location goes out at once; later ones every 15 s.
+        if (current.has_location && Date.now() - lastLiveSent < LIVE_EVERY_MS) return;
         lastLiveSent = Date.now();
         try {
           const ciphertext = await encrypt({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy });
-          await api(`/sos/${current.sos_id}/location`, { method: "POST", body: JSON.stringify({ ciphertext }) });
+          const r = await api(`/sos/${current.sos_id}/location`, { method: "POST", body: JSON.stringify({ ciphertext }) });
+          if (r.first_fix) {
+            current.has_location = true;
+            addLog(`Location found (±${Math.round(p.coords.accuracy)} m): sent to contacts and nearby responders.`, "ok");
+          }
         } catch {
           /* next update will try again */
         }
@@ -343,7 +368,9 @@
       { enableHighAccuracy: true, maximumAge: 5000 }
     );
     lastLiveSent = Date.now();
-    addLog("Live location on: updates every 15 s while this screen stays open.", "ok");
+    addLog(current?.has_location
+      ? "Live location on: updates every 15 s while this screen stays open."
+      : "Waiting for GPS: keep this screen open.", current?.has_location ? "ok" : "warn");
   }
 
   function stopLive() {
@@ -421,7 +448,7 @@
         <div>
           <p class="section-title">Nearby responders</p>
           <div class="who">
-            ${c.responders_alerted.map((r) => `<div class="who__row"><span>${esc(r.name)}<small>~${r.distance_km} km · ${deliveryTag("Telegram", r.telegram)}</small></span><span class="state ${r.status}">${r.status}</span></div>`).join("")}
+            ${c.responders_alerted.map((r) => `<div class="who__row"><span>${esc(r.name)}<small>${r.distance_km} km · ${deliveryTag("Telegram", r.telegram)}</small></span><span class="state ${r.status}">${r.status}</span></div>`).join("")}
             ${c.responders_excluded.map((r) => `<div class="who__row"><span>${esc(r.name)}<small>${esc(r.reason)}</small></span><span class="state excluded">not alerted</span></div>`).join("")}
             ${!c.responders_alerted.length && !c.responders_excluded.length ? '<p class="note">No responders registered yet.</p>' : ""}
           </div>
@@ -447,6 +474,8 @@
     els.view.hidden = false;
     els.btn.classList.add("active");
     window.kavach.deselect("");
+    window.kavachMobile?.show("main");
+    window.kavachMobile?.pill("SOS status ›");
     ring();
     renderPanel();
     loadSetup();
@@ -483,7 +512,7 @@
   function close() {
     if (!isOpen) return;
     isOpen = false;
-    document.body.classList.remove("sosing");
+    document.body.classList.remove("sosing", "calling");
     els.view.hidden = true;
     els.btn.classList.remove("active");
   }

@@ -57,6 +57,11 @@
             ring && map.removeLayer(ring);
             return clearInterval(timer);
           }
+          if (d.waiting_for_location) {
+            if (d.name) document.querySelector(".bar h1").textContent = `${d.name} sent an SOS`;
+            meta.textContent = "Her phone hasn't found her location yet. This page updates by itself. Try calling her.";
+            return;
+          }
           const ll = [d.lat, d.lng];
           pin ? pin.setLatLng(ll) : (pin = L.marker(ll).addTo(map));
           ring ? ring.setLatLng(ll).setRadius(d.accuracy) : (ring = L.circle(ll, { radius: d.accuracy, color: "#dc2f45" }).addTo(map));
@@ -64,7 +69,8 @@
           if (d.name) document.querySelector(".bar h1").textContent = `${d.name}'s live location`;
           const help = d.responders_on_the_way.length ? ` · On the way: ${d.responders_on_the_way.join(", ")}` : "";
           meta.textContent = `SOS at ${new Date(d.created_at).toLocaleTimeString("en-IN")} · location ±${Math.round(d.accuracy)} m · updated ${new Date(d.updated_at).toLocaleTimeString("en-IN")}${help}`;
-          document.getElementById("directions").href = `https://www.openstreetmap.org/directions?route=%3B${d.lat}%2C${d.lng}`;
+          // Google Maps directions open in the Maps app on iPhone and Android (from the viewer's own location).
+          document.getElementById("directions").href = `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}`;
         } catch (err) {
           alertEl.textContent = err.message;
           meta.textContent = "";

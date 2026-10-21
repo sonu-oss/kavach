@@ -7,7 +7,7 @@ from app import config
 from app.sos import crypto, db, notify, people, service
 
 # The real senders, kept before the autouse fixture replaces them for endpoint tests.
-REAL = {n: getattr(notify, n) for n in ("sos_started", "location_updated", "responder_accepted", "sos_ended")}
+REAL = {n: getattr(notify, n) for n in ("sos_started", "location_updated", "responder_accepted", "sos_ended", "location_found")}
 
 HER = {"lat": 12.9352, "lng": 77.6245, "accuracy": 25}
 NEAR = (12.9390, 77.6290)  # ~0.6 km away
@@ -27,7 +27,7 @@ def fresh(tmp_path, monkeypatch):
     async def record(*args):
         sent.append(args)
 
-    for name in ("sos_started", "location_updated", "responder_accepted", "sos_ended"):
+    for name in ("sos_started", "location_updated", "responder_accepted", "sos_ended", "location_found"):
         monkeypatch.setattr(notify, name, record)
     return sent
 
@@ -274,3 +274,79 @@ def test_accepting_sends_exact_pin_and_safe_stops_it(fake_telegram):
     asyncio.run(REAL["sos_ended"](sos_id))
     stopped = {p["chat_id"] for m, p in fake_telegram if m == "stopMessageLiveLocation"}
     assert stopped == {111, 222}
+
+
+
+# ---------- no GPS fix yet: the SOS still goes out, location follows ----------
+
+def test_sos_without_location_goes_out_and_first_fix_alerts_responders(client):
+    asha = responder(client, "Asha")
+    r = client.post("/sos", json={"location_source": "none"}).json()
+    assert r["has_location"] is False and r["responders_alerted"] == []
+    assert r["responders_excluded"][0]["reason"] == "waiting for her location"
+    token = r["track_path"].split("t=")[1]
+    assert client.get(f"/sos/track/{token}").json()["waiting_for_location"] is True
+
+    fix = client.post(f"/sos/{r['sos_id']}/location", json={"ciphertext": enc()}).json()
+    assert fix["first_fix"] is True
+    after = client.get(f"/sos/{r['sos_id']}").json()
+    assert after["has_location"] and [x["id"] for x in after["responders_alerted"]] == [asha]
+    assert client.get(f"/sos/track/{token}").json()["lat"] == HER["lat"]
+    # Later updates are ordinary moves, not a second "first fix".
+    assert client.post(f"/sos/{r['sos_id']}/location", json={"ciphertext": enc()}).json()["first_fix"] is False
+
+
+def test_retrigger_without_location_keeps_the_known_location(client):
+    r = send_sos(client).json()
+    again = client.post("/sos", json={"location_source": "none"}).json()
+    assert again["sos_id"] == r["sos_id"] and again["has_location"] is True
+    token = r["track_path"].split("t=")[1]
+    assert client.get(f"/sos/track/{token}").json()["lat"] == HER["lat"]
+
+
+def test_contact_gets_no_pin_until_location_found(fake_telegram):
+    people.link_telegram(people.create("contact", "Mom")["link_code"], 111)
+    p = people.create("responder", "Asha", lat=NEAR[0], lng=NEAR[1])
+    people.verify(p["id"])
+    people.link_telegram(p["link_code"], 222)
+    sos_id = service.trigger("u", None, "manual", "none", "https://x.trycloudflare.com")["sos_id"]
+    asyncio.run(REAL["sos_started"](sos_id))
+    assert not any(m == "sendLocation" for m, _ in fake_telegram)
+    assert "hasn't found her location yet" in next(p["text"] for m, p in fake_telegram if m == "sendMessage")
+
+    fake_telegram.clear()
+    service.update_location(sos_id, HER)
+    asyncio.run(REAL["location_found"](sos_id))
+    assert ("sendLocation", 111) in [(m, p.get("chat_id")) for m, p in fake_telegram]  # pin to Mom
+    assert any(p.get("chat_id") == 222 and "reply_markup" in p for m, p in fake_telegram)  # responder buttons
+
+
+def test_responders_only_get_coarse_distances(fake_telegram):
+    assert service.coarse_km(240) == "under 0.5" and service.coarse_km(1400) == "1.5" and service.coarse_km(None) is None
+    sos_id, _ = _start_sos(responders=[("Asha", 222)])
+    asyncio.run(REAL["sos_started"](sos_id))
+    text = next(p["text"] for m, p in fake_telegram if p.get("chat_id") == 222)
+    assert "about 0.5 km" in text and "0.6" not in text  # 0.6 km away, shown only as 0.5 km
+
+
+def test_accepting_responder_gets_a_directions_link(fake_telegram):
+    sos_id, (asha,) = _start_sos(responders=[("Asha", 222)])
+    service.respond(sos_id, asha, "accept")
+    asyncio.run(REAL["responder_accepted"](sos_id, asha))
+    text = next(p["text"] for m, p in fake_telegram if m == "sendMessage" and p["chat_id"] == 222)
+    assert f"google.com/maps/dir/?api=1&destination={HER['lat']:.6f},{HER['lng']:.6f}" in text
+
+
+def test_demo_location_is_rejected(client):
+    r = client.post("/sos", json={"ciphertext": enc(), "location_source": "demo"})
+    assert r.status_code == 422
+
+
+def test_links_use_the_public_address_not_localhost(client):
+    import app.main as main
+
+    client.get("/health", headers={"host": "abc-def.trycloudflare.com"})  # app opened via the tunnel
+    # ...then the SOS is triggered from the laptop at localhost.
+    sos_id = client.post("/sos", json={"ciphertext": enc()}, headers={"host": "localhost:8000"}).json()["sos_id"]
+    assert service.get_sos(sos_id)["base_url"] == "https://abc-def.trycloudflare.com"
+    main._last_public_base = None

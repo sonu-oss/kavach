@@ -51,6 +51,8 @@
     window.kavachComplaint?.close();
     window.kavachSos?.close();
     window.kavachFlow?.set(1);
+    window.kavachMobile?.show("main");
+    window.kavachMobile?.pill(null);
     isOpen = true;
     rows = [];
     images = [];

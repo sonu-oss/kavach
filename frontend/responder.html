@@ -257,9 +257,9 @@
         }
         $("#alerts").innerHTML = alerts.map((a) => {
           const ended = a.sos_status !== "active";
-          const from = a.my_position ? `${a.my_position.lat}%2C${a.my_position.lng}` : "";
+          const from = a.my_position ? `${a.my_position.lat},${a.my_position.lng}` : "";
           const exact = a.exact
-            ? `<div class="exact">Exact location shared with you only.<br><a href="https://www.openstreetmap.org/directions?route=${from}%3B${a.exact.lat}%2C${a.exact.lng}" target="_blank" rel="noopener">Get directions ↗</a></div>` : "";
+            ? `<div class="exact">Exact location shared with you only.<br><a href="https://www.google.com/maps/dir/?api=1${from ? `&origin=${from}` : ""}&destination=${a.exact.lat},${a.exact.lng}" target="_blank" rel="noopener">Get directions ↗</a></div>` : "";
           const updated = !ended && a.updated_at && a.updated_at !== a.created_at
             ? `<div class="row muted">Location updated ${new Date(a.updated_at).toLocaleTimeString("en-IN")}</div>` : "";
           const acts = ended ? `<p class="note">${a.sos_status === "expired" ? "Alert expired." : "She marked herself safe. Thank you."}</p>`
@@ -267,7 +267,7 @@
             : a.my_status === "declined" ? `<p class="note">You declined this alert.</p>` : "";
           return `<div class="card alert-card ${a.sos_id === selected ? "selected" : ""}" data-sel="${a.sos_id}">
             <div class="row"><h2>SOS nearby</h2><span class="state ${ended ? "excluded" : a.my_status}">${ended ? "ended" : a.my_status}</span></div>
-            <div class="row"><span>${new Date(a.created_at).toLocaleTimeString("en-IN")}</span><span>~${a.approx_distance_km ?? "?"} km from you</span></div>
+            <div class="row"><span>${new Date(a.created_at).toLocaleTimeString("en-IN")}</span><span>${a.approx_distance_km ?? "?"} km from you</span></div>
             ${a.others_accepted ? `<div class="row muted">${a.others_accepted} other responder(s) on the way</div>` : ""}
             ${updated}${exact}${acts}
           </div>`;

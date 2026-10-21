@@ -5,9 +5,10 @@ from pydantic import BaseModel, Field
 
 class SosIn(BaseModel):
     # RSA-OAEP(SHA-256) ciphertext of {"lat", "lng", "accuracy"} under GET /sos/key.
-    ciphertext: str = Field(min_length=100, max_length=1000)
+    # None when her phone couldn't get a GPS fix yet: the SOS still goes out, location follows.
+    ciphertext: str | None = Field(default=None, min_length=100, max_length=1000)
     trigger: Literal["long_press_decline", "manual"] = "long_press_decline"
-    location_source: Literal["gps", "demo"] = "gps"
+    location_source: Literal["gps", "none"] = "gps"  # only ever her phone's real GPS
 
 
 class LocationIn(BaseModel):

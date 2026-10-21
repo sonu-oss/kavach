@@ -102,6 +102,8 @@
     window.kavachVault?.close();
     window.kavachSos?.close();
     window.kavachFlow?.set(4);
+    window.kavachMobile?.show("main");
+    window.kavachMobile?.pill("Laws & filing ›");
     isOpen = true;
     document.body.classList.add("complaining");
     els.view.hidden = false;
@@ -240,6 +242,7 @@
   els.file.addEventListener("click", () => {
     tab = "file";
     renderPanel();
+    window.kavachMobile?.show("panel");
   });
 
   // ---------- right panel ----------

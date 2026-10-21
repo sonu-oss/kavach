@@ -89,6 +89,11 @@ def _maps(lat, lng) -> str:
     return f"https://maps.google.com/?q={lat:.6f},{lng:.6f}"
 
 
+def _directions(lat, lng) -> str:
+    """Opens Google Maps (app or web) with a route from wherever the reader is to her."""
+    return f"https://www.google.com/maps/dir/?api=1&destination={lat:.6f},{lng:.6f}"
+
+
 async def sos_started(sos_id: str) -> None:
     s = service.get_sos(sos_id)
     name = people.her_name()
@@ -103,27 +108,29 @@ async def sos_started(sos_id: str) -> None:
 
 
 async def _alert_contact(s: dict, d: dict, name: str, track: str) -> None:
+    where = (f"Live location: {track}" if s["has_location"] else
+             f"Her phone hasn't found her location yet. You'll get a live pin here as soon as it does.\nLink: {track}")
     text = (f"🚨 SOS from {name}\n\nShe triggered a silent SOS and may need help right now.\n\n"
-            f"Live location: {track}\n\nIf you can't reach her, call 112.")
+            f"{where}\n\nIf you can't reach her, call 112.")
     tg_status = "not set up" if not telegram_on() else "not linked"
     if telegram_on() and d["telegram_chat_id"]:
         try:
             await tg("sendMessage", chat_id=d["telegram_chat_id"], text=text, disable_web_page_preview=True)
-            pin = await tg("sendLocation", chat_id=d["telegram_chat_id"], latitude=s["lat"], longitude=s["lng"],
-                           live_period=LIVE_PERIOD_S, horizontal_accuracy=min(s["accuracy"], 1500))
-            service.record_delivery(s["id"], d["person_id"], live_message_id=pin["message_id"])
+            if s["has_location"]:
+                await _send_live_pin(s, d)
             tg_status = "sent"
         except Exception as exc:
             log.warning("Telegram to contact %s failed: %s", d["name"], exc)
             tg_status = "failed"
+    map_line = f"Map: {_maps(s['lat'], s['lng'])}" if s["has_location"] else "Map: not available yet (see the live link)"
     mail = await email(d["person_email"], f"SOS from {name}: she may need help",
-                       f"{text}\n\nMap: {_maps(s['lat'], s['lng'])}\n\nSent by Kavach.")
+                       f"{text}\n\n{map_line}\n\nSent by Kavach.")
     service.record_delivery(s["id"], d["person_id"], telegram=tg_status, email=mail)
 
 
 async def _alert_responder(s: dict, d: dict, name: str) -> None:
-    km = f"{d['distance_m'] / 1000:.1f}" if d["distance_m"] is not None else "?"
-    area = f"https://www.openstreetmap.org/?mlat={s['approx_lat']}&mlon={s['approx_lng']}#map=15/{s['approx_lat']}/{s['approx_lng']}"
+    km = service.coarse_km(d["distance_m"]) or "?"
+    area = f"https://www.google.com/maps/search/?api=1&query={s['approx_lat']},{s['approx_lng']}"
     text = (f"🚨 SOS nearby · about {km} km from you\n\nSomeone using Kavach needs help.\n"
             f"Approximate area (±1 km): {area}\n\nYou'll get her exact location only if you accept.")
     tg_status = "not set up" if not telegram_on() else "not linked"
@@ -142,6 +149,31 @@ async def _alert_responder(s: dict, d: dict, name: str) -> None:
     mail = await email(d["person_email"], "Kavach: SOS near you",
                        f"{text}\n\nAccept or decline on your dashboard: {dash}\n\nSent by Kavach.")
     service.record_delivery(s["id"], d["person_id"], telegram=tg_status, email=mail)
+
+
+async def _send_live_pin(s: dict, d: dict) -> None:
+    pin = await tg("sendLocation", chat_id=d["telegram_chat_id"], latitude=s["lat"], longitude=s["lng"],
+                   live_period=LIVE_PERIOD_S, horizontal_accuracy=min(s["accuracy"], 1500))
+    service.record_delivery(s["id"], d["person_id"], live_message_id=pin["message_id"])
+
+
+async def location_found(sos_id: str) -> None:
+    """Her phone got its first GPS fix after the SOS went out: pin for contacts, alerts for responders."""
+    s = service.get_sos(sos_id)
+    name = people.her_name()
+    jobs = []
+    for d in service.deliveries(sos_id):
+        if d["role"] == "contact" and d["telegram_chat_id"] and not d["live_message_id"] and telegram_on():
+            async def pin(d=d):
+                try:
+                    await tg("sendMessage", chat_id=d["telegram_chat_id"], text=f"📍 {name}'s location is now available:")
+                    await _send_live_pin(s, d)
+                except Exception as exc:
+                    log.warning("first pin to %s failed: %s", d["name"], exc)
+            jobs.append(pin())
+        elif d["role"] == "responder" and d["telegram"] is None:  # newly matched responder
+            jobs.append(_alert_responder(s, d, name))
+    await asyncio.gather(*jobs)
 
 
 async def location_updated(sos_id: str) -> None:
@@ -166,7 +198,9 @@ async def responder_accepted(sos_id: str, person_id: str) -> None:
     if telegram_on() and me["telegram_chat_id"]:
         try:
             await tg("sendMessage", chat_id=me["telegram_chat_id"],
-                     text="Thank you. Her exact live location is below, shared with you only.\n"
+                     text="✅ Thank you. Her exact location is shared with you only.\n\n"
+                          f"🧭 Directions: {_directions(s['lat'], s['lng'])}\n\n"
+                          "The live pin below follows her as she moves. Tap it for directions too.\n"
                           f"Dashboard: {s['base_url']}/responder.html?as={person_id}\n\nIf it's serious, call 112 too.",
                      disable_web_page_preview=True)
             pin = await tg("sendLocation", chat_id=me["telegram_chat_id"], latitude=s["lat"], longitude=s["lng"],

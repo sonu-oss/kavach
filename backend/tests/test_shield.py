@@ -219,3 +219,15 @@ def test_subtle_threats_are_not_short_circuited(text):
 )
 def test_everyday_chat_still_short_circuits(text):
     assert run_prefilter(msgs(text), "me").is_clearly_safe
+
+
+def test_injection_note_is_removed_when_there_was_no_injection(with_key, monkeypatch):
+    async def echoing(payload, model):
+        return json.dumps({
+            "category": "sextortion_blackmail", "risk_score": 85, "severity": "high",
+            "reason": "Threatens to leak pictures. " + classifier.INJECTION_NOTE, "flagged_message_ids": ["b"],
+        })
+
+    monkeypatch.setattr(classifier, "_call_groq", echoing)
+    r = asyncio.run(classifier.analyze(THREAT_REQ))
+    assert classifier.INJECTION_NOTE not in r.reason and r.reason == "Threatens to leak pictures."

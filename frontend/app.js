@@ -95,6 +95,7 @@
     window.kavachVault?.close();
     window.kavachComplaint?.close();
     window.kavachSos?.close();
+    window.kavachMobile?.show("main");
     activeId = id;
     renderContacts();
     renderChat();
@@ -167,6 +168,7 @@
 
   function renderEmpty() {
     window.kavachFlow?.set(1);
+    window.kavachMobile?.pill("Risk check ›");
     els.shield.innerHTML = `<div class="empty"><p>Press <strong>Scan</strong> to check this chat.</p></div>`;
   }
 
@@ -225,6 +227,7 @@
     });
     highlight(flagged, r.severity);
     window.kavachFlow?.set(r.saved ? 3 : 2);
+    window.kavachMobile?.pill(`Risk ${r.risk_score} · ${r.severity} ›`);
   }
 
   function clearHighlights() {

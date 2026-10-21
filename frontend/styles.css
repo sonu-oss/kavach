@@ -826,3 +826,96 @@ body.sosing .app { height: calc(100vh - var(--topbar)); }
 .qr { background: #fff; border-radius: 6px; padding: 10px; width: 220px; margin: 0 auto; }
 .qr svg { width: 100%; height: auto; display: block; }
 .qr-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* =====================================================================
+   Phone layout (installable app). Laptop layout above is unchanged.
+   One pane at a time: body.m-list / m-main / m-panel, chosen by nav.js.
+   ===================================================================== */
+.tabbar, .m-pill, .m-back { display: none; }
+
+@media (max-width: 820px) {
+  :root { --topbar: 52px; --flowbar: 40px; --tabbar: 62px; }
+  html, body { height: auto; min-height: 100%; }
+  body { padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom)); }
+
+  /* top bar: brand only; the tab bar replaces the nav links */
+  .topbar { padding: env(safe-area-inset-top) 16px 0; height: calc(var(--topbar) + env(safe-area-inset-top)); gap: 12px; }
+  .nav { display: none; }
+  .nav-status { display: inline-block; margin-left: auto; }
+
+  /* flow bar: compact */
+  .flowbar { padding: 0 12px; overflow-x: auto; }
+  .flowbar li { font-size: 10px; letter-spacing: .1em; gap: 6px; }
+  .flowbar li:not(:last-child)::after { width: 12px; margin: 0 6px; }
+
+  /* one pane at a time */
+  .app {
+    grid-template-columns: 1fr; padding: 0;
+    height: calc(100dvh - var(--topbar) - var(--flowbar) - var(--tabbar) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+  body.sosing .app { height: calc(100dvh - var(--topbar) - var(--tabbar) - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .contacts, .chat, .shield { display: none !important; border: none; max-height: none; height: 100%; }
+  body.m-list .contacts, body.m-main .chat, body.m-panel .shield { display: flex !important; }
+  .contacts { border: none; }
+  .m-back {
+    display: grid; place-items: center; flex: none; width: 34px; height: 34px; margin-right: 2px;
+    background: none; border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 20px; line-height: 1;
+  }
+  .shield__head .m-back { margin-right: 10px; }
+  .chat__head, .shield__head, .vault__head { padding: 10px 12px; min-height: 54px; }
+  .shield__foot { padding-bottom: 14px; }
+
+  /* screens */
+  .msg { max-width: 85%; }
+  .chat__body, .vault__body, .complaint__body, .import__body { padding: 12px; }
+  .vault__toolbar { padding: 8px 12px; flex-wrap: wrap; }
+  .letter { min-height: 320px; padding: 14px; }
+  .details-grid { grid-template-columns: 1fr; }
+  .review__meta { grid-template-columns: 1fr; }
+  .composer { padding: 8px; }
+  .home { min-height: auto; padding: 28px 20px 24px; gap: 32px; justify-content: flex-start; }
+  .home h1 { font-size: 40px; }
+  .home__cta .btn { width: 100%; text-align: center; }
+
+  /* floating button to the side panel */
+  .m-pill {
+    display: block; position: fixed; z-index: 30; right: 14px;
+    bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 14px);
+    background: var(--brand); color: var(--brand-ink); border: none; border-radius: 99px;
+    padding: 12px 18px; font: 600 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .5);
+  }
+  .m-pill[hidden] { display: none; }
+
+  /* bottom tab bar */
+  .tabbar {
+    display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; z-index: 40; left: 0; right: 0; bottom: 0;
+    height: calc(var(--tabbar) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
+    background: rgba(10, 10, 10, .96); border-top: 1px solid var(--border); backdrop-filter: blur(10px);
+  }
+  .tabbar button {
+    background: none; border: none; color: var(--muted); display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 3px; font: 500 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  }
+  .tabbar button span { font-size: 18px; line-height: 1; }
+  .tabbar button.active { color: var(--text); }
+  .tabbar button.active span { color: var(--brand); }
+  .tabbar .tab-sos span { color: var(--risk-high); }
+
+  /* SOS: on a phone the screen itself is the phone, so the mockup only appears during the call */
+  .sosv__body { padding: 12px; }
+  .sosv .phone { display: none; }
+  .sos-side { width: 100%; }
+  body.calling .sosv .phone {
+    display: block; position: fixed; inset: 0; z-index: 100; width: 100vw; height: 100dvh; aspect-ratio: auto;
+    border: 0; border-radius: 0; box-shadow: none;
+  }
+  body.calling .phone__notch, body.calling .phone__status { display: none; }
+  body.calling .screen { padding: calc(env(safe-area-inset-top) + 56px) 24px calc(env(safe-area-inset-bottom) + 40px); }
+  body.calling .call-btn { width: 76px; height: 76px; }
+  body.calling .tabbar, body.calling .m-pill { display: none; }
+
+  /* QR + toast above the tab bar */
+  .toast { bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 70px); }
+}
+@media (max-width: 820px) { .m-pill { bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 74px); } }

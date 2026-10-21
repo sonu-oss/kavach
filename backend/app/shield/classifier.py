@@ -160,6 +160,9 @@ def _apply_injection_guard(
 ) -> ThreatResult:
     """Deterministic backstop so a manipulation attempt is always surfaced, whatever the model did."""
     if not injection_ids:
+        # The model sometimes echoes this sentence from its instructions; only keep it when it's true.
+        if INJECTION_NOTE in result.reason:
+            result.reason = result.reason.replace(INJECTION_NOTE, "").strip() or result.reason
         return result
     if result.category == "safe":
         # The model was talked into "safe": the injection worked, so trust the rules instead.

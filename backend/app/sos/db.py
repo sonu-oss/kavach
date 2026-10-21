@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS sos (
     track_token   TEXT NOT NULL UNIQUE,
     token_expires REAL NOT NULL,
     base_url      TEXT,                          -- public address used in links sent out
+    has_location  INTEGER NOT NULL DEFAULT 1,    -- 0 until her phone gets a GPS fix
     created_ts    REAL NOT NULL,
     created_at    TEXT NOT NULL,
     updated_at    TEXT NOT NULL
@@ -71,6 +72,9 @@ def connect():
     conn.row_factory = sqlite3.Row
     try:
         conn.executescript(SCHEMA)
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(sos)")}
+        if "has_location" not in cols:  # databases created before this column existed
+            conn.execute("ALTER TABLE sos ADD COLUMN has_location INTEGER NOT NULL DEFAULT 1")
         yield conn
     finally:
         conn.close()

@@ -38,6 +38,16 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 
 @app.middleware("http")
+async def remember_public_address(request, call_next):
+    # Remember the https address the app was last opened on, for links sent from a laptop SOS.
+    global _last_public_base
+    base = _request_base(request)
+    if base.startswith("https://") and not base.split("://", 1)[1].startswith(_LOCAL_HOSTS):
+        _last_public_base = base
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def revalidate_static(request, call_next):
     # Without this, browsers heuristically cache app.js etc. and keep showing an old build.
     response = await call_next(request)
@@ -158,15 +168,26 @@ def _background(coro) -> None:
     t.add_done_callback(_tasks.discard)
 
 
-def _public_base(request: Request) -> str:
-    """The address put into links we send out (tunnel URL on a phone, localhost on the laptop)."""
-    if config.PUBLIC_URL:
-        return config.PUBLIC_URL
+_LOCAL_HOSTS = ("localhost", "127.0.0.1", "[::1]")
+_last_public_base: str | None = None
+
+
+def _request_base(request: Request) -> str:
     proto = request.headers.get("x-forwarded-proto") or request.url.scheme
     host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
     if "trycloudflare.com" in host:  # the tunnel is always https, even if the header says otherwise
         proto = "https"
     return f"{proto}://{host}"
+
+
+def _public_base(request: Request) -> str:
+    """The address put into links we send out. Links must open on phones, so never localhost
+    when the app has been reached over a public address (e.g. the https tunnel)."""
+    if config.PUBLIC_URL:
+        return config.PUBLIC_URL
+    base = _request_base(request)
+    is_local = base.split("://", 1)[1].startswith(_LOCAL_HOSTS)
+    return (_last_public_base or base) if is_local else base
 
 
 def _sos_call(fn, *args, **kwargs):
@@ -208,12 +229,15 @@ def sos_profile(body: ProfileIn):
     return {"name": people.set_her_name(body.name)}
 
 
+_EVENT = {"started": "sos_started", "first_fix": "location_found", "updated": "location_updated"}
+
+
 @app.post("/sos")
 async def sos_trigger(body: SosIn, request: Request):
-    loc = _decrypt(body.ciphertext)
-    result = _sos_call(sos.trigger, DEMO_USER, loc, body.trigger, body.location_source, _public_base(request))
-    event = result.pop("event")
-    _background(notify.sos_started(result["sos_id"]) if event == "started" else notify.location_updated(result["sos_id"]))
+    loc = _decrypt(body.ciphertext) if body.ciphertext else None
+    source = body.location_source if loc else "none"
+    result = _sos_call(sos.trigger, DEMO_USER, loc, body.trigger, source, _public_base(request))
+    _background(getattr(notify, _EVENT[result.pop("event")])(result["sos_id"]))
     return result
 
 
@@ -232,7 +256,7 @@ def sos_status(sos_id: str):
 async def sos_location(sos_id: str, body: LocationIn):
     """Live GPS from her phone while the SOS is active."""
     result = _sos_call(sos.update_location, sos_id, _decrypt(body.ciphertext))
-    _background(notify.location_updated(sos_id))
+    _background(notify.location_found(sos_id) if result["first_fix"] else notify.location_updated(sos_id))
     return result
 
 

@@ -156,6 +156,8 @@
     window.kavachComplaint?.close();
     window.kavachSos?.close();
     window.kavachFlow?.set(3);
+    window.kavachMobile?.show("main");
+    window.kavachMobile?.pill("Details ›");
     isOpen = true;
     document.body.classList.add("vaulting");
     els.view.hidden = false;

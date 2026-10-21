@@ -81,23 +81,38 @@ def _active(user: str) -> dict | None:
     return db.one("SELECT * FROM sos WHERE user=? AND status='active' ORDER BY created_ts DESC LIMIT 1", user)
 
 
-def _km(m: float | None) -> float | None:
-    return None if m is None else round(m / 500) / 2
+def coarse_km(m: float | None) -> str | None:
+    """Distance in 0.5 km steps. Responders must not get a precise distance: with their own
+    position it would pin her down far tighter than the approximate 1 km area."""
+    if m is None:
+        return None
+    return "under 0.5" if m < 500 else f"{round(m / 500) / 2:g}"
+
+
+_km = coarse_km
 
 
 # ---------- SOS lifecycle ----------
 
-def trigger(user: str, loc: dict, trigger_kind: str, source: str, base_url: str) -> dict:
-    """Returns the summary plus 'event': 'started' (notify everyone) or 'updated' (move live pins)."""
-    lat, lng, accuracy = _parse_location(loc)
-    alat, alng = approximate(lat, lng)
+def trigger(user: str, loc: dict | None, trigger_kind: str, source: str, base_url: str) -> dict:
+    """Returns the summary plus 'event':
+    'started' (notify everyone), 'updated' (move live pins) or 'first_fix' (location just became known).
+    loc is None when her phone had no GPS fix: the SOS goes out anyway and the location follows."""
+    has_loc = loc is not None
+    lat, lng, accuracy = _parse_location(loc) if has_loc else (0.0, 0.0, 0.0)
+    alat, alng = approximate(lat, lng) if has_loc else (0.0, 0.0)
     with db.lock:
         active = _active(user)
         if active:
             # Re-triggering while an SOS is active refreshes it: never block a person in danger twice.
-            db.run("UPDATE sos SET lat=?, lng=?, accuracy=?, approx_lat=?, approx_lng=?, updated_at=? WHERE id=?",
-                   lat, lng, accuracy, alat, alng, _now_iso(), active["id"])
-            return {**summary(active["id"]), "updated_existing": True, "event": "updated"}
+            if not has_loc:
+                return {**summary(active["id"]), "updated_existing": True, "event": "updated"}
+            first_fix = not active["has_location"]
+            db.run("UPDATE sos SET lat=?, lng=?, accuracy=?, approx_lat=?, approx_lng=?, source=?, has_location=1,"
+                   " updated_at=? WHERE id=?", lat, lng, accuracy, alat, alng, source, _now_iso(), active["id"])
+            if first_fix:
+                _match_responders(active["id"], lat, lng)
+            return {**summary(active["id"]), "updated_existing": True, "event": "first_fix" if first_fix else "updated"}
 
         recent = db.one("SELECT COUNT(*) AS n FROM sos WHERE user=? AND created_ts > ?", user, time.time() - RATE_WINDOW_S)
         if recent["n"] >= RATE_LIMIT:
@@ -108,21 +123,30 @@ def trigger(user: str, loc: dict, trigger_kind: str, source: str, base_url: str)
             c.execute("BEGIN")
             c.execute(
                 "INSERT INTO sos (id, user, lat, lng, accuracy, approx_lat, approx_lng, trigger, source, status,"
-                " track_token, token_expires, base_url, created_ts, created_at, updated_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)",
+                " track_token, token_expires, base_url, has_location, created_ts, created_at, updated_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?)",
                 (sos_id, user, lat, lng, accuracy, alat, alng, trigger_kind, source, secrets.token_urlsafe(16),
-                 now + TRACK_TTL_S, base_url, now, _now_iso(), _now_iso()),
+                 now + TRACK_TTL_S, base_url, int(has_loc), now, _now_iso(), _now_iso()),
             )
             for p in c.execute("SELECT * FROM people WHERE kind='contact'").fetchall():
                 c.execute("INSERT INTO alerts (sos_id, person_id, role, status, at) VALUES (?, ?, 'contact', 'notified', ?)",
                           (sos_id, p["id"], _now_iso()))
-            for p in c.execute("SELECT * FROM people WHERE kind='responder'").fetchall():
-                if _eligible(dict(p), lat, lng)[0]:
-                    dist = haversine_m(lat, lng, p["lat"], p["lng"])
-                    c.execute("INSERT INTO alerts (sos_id, person_id, role, status, distance_m)"
-                              " VALUES (?, ?, 'responder', 'pending', ?)", (sos_id, p["id"], dist))
             c.execute("COMMIT")
+        if has_loc:  # without a location nobody can be matched yet; done on the first fix
+            _match_responders(sos_id, lat, lng)
     return {**summary(sos_id), "updated_existing": False, "event": "started"}
+
+
+def _match_responders(sos_id: str, lat: float, lng: float) -> list[str]:
+    """Alert every eligible responder not already alerted for this SOS. Returns their ids."""
+    already = {a["person_id"] for a in db.rows("SELECT person_id FROM alerts WHERE sos_id=?", sos_id)}
+    added = []
+    for p in db.rows("SELECT * FROM people WHERE kind='responder'"):
+        if p["id"] not in already and _eligible(p, lat, lng)[0]:
+            db.run("INSERT INTO alerts (sos_id, person_id, role, status, distance_m) VALUES (?, ?, 'responder', 'pending', ?)",
+                   sos_id, p["id"], haversine_m(lat, lng, p["lat"], p["lng"]))
+            added.append(p["id"])
+    return added
 
 
 def _eligible(p: dict, lat: float, lng: float) -> tuple[bool, str]:
@@ -145,10 +169,13 @@ def update_location(sos_id: str, loc: dict) -> dict:
     if s["status"] != "active":
         raise SosError("this SOS has ended", 409)
     alat, alng = approximate(lat, lng)
+    first_fix = not s["has_location"]
     with db.lock:
-        db.run("UPDATE sos SET lat=?, lng=?, accuracy=?, approx_lat=?, approx_lng=?, updated_at=? WHERE id=?",
-               lat, lng, accuracy, alat, alng, _now_iso(), sos_id)
-    return {"ok": True, "updated_at": _get(sos_id)["updated_at"]}
+        db.run("UPDATE sos SET lat=?, lng=?, accuracy=?, approx_lat=?, approx_lng=?, has_location=1, source='gps',"
+               " updated_at=? WHERE id=?", lat, lng, accuracy, alat, alng, _now_iso(), sos_id)
+        if first_fix:
+            _match_responders(sos_id, lat, lng)
+    return {"ok": True, "first_fix": first_fix, "updated_at": _get(sos_id)["updated_at"]}
 
 
 def summary(sos_id: str) -> dict:
@@ -159,11 +186,13 @@ def summary(sos_id: str) -> dict:
     excluded = []
     for p in db.rows("SELECT * FROM people WHERE kind='responder'"):
         if p["id"] not in alerted:
-            ok, reason = _eligible(p, s["lat"], s["lng"])
+            ok, reason = _eligible(p, s["lat"], s["lng"]) if s["has_location"] else (False, "waiting for her location")
             excluded.append({"id": p["id"], "name": p["name"], "reason": reason or "registered after this SOS"})
     return {
         "sos_id": s["id"],
         "status": s["status"],
+        "has_location": bool(s["has_location"]),
+        "location_source": s["source"],
         "created_at": s["created_at"],
         "updated_at": s["updated_at"],
         "track_path": f"/track.html?t={s['track_token']}",
@@ -204,6 +233,9 @@ def track(token: str) -> dict:
         return {"status": s["status"], "updated_at": s["updated_at"]}
     on_way = db.rows("SELECT p.name FROM alerts a JOIN people p ON p.id=a.person_id"
                      " WHERE a.sos_id=? AND a.role='responder' AND a.status='accepted'", s["id"])
+    if not s["has_location"]:
+        return {"status": s["status"], "name": people.her_name(), "waiting_for_location": True,
+                "created_at": s["created_at"], "updated_at": s["updated_at"], "responders_on_the_way": []}
     return {
         "status": s["status"], "name": people.her_name(),
         "lat": s["lat"], "lng": s["lng"], "accuracy": s["accuracy"],

@@ -17,7 +17,7 @@ She's in a cab going the wrong way, or being followed, or the harasser is next t
    - her **GPS location** is read and **encrypted on her phone** before it's sent,
    - her **trusted contacts** get a Telegram message plus a **live location pin that moves with her**, and an email with the live link,
    - **verified responders within 3 km** get a Telegram alert showing only an **approximate 1 km area**, with **Accept / Decline** buttons.
-4. A responder taps **Accept** (in Telegram or on the responder page), and only that responder gets her **exact live location**. Her contacts are told "X is on the way".
+4. A responder taps **Accept** (in Telegram or on the responder page), and only that responder gets her **exact live location** and a **🧭 Directions** link (Google Maps). Her contacts are told "X is on the way".
 5. While the SOS is on, her location updates every 15 seconds.
 6. When she's safe she taps **I'm safe**: everyone is told and the live pins stop.
 7. **Accept** on the fake call shows an in-call screen: a believable excuse to walk away.
@@ -102,7 +102,7 @@ Restart the server after editing `.env`. The SOS **Setup** panel shows "Telegram
 6. Tap **I'm safe** in the app: both get "marked herself safe", pins stop.
 7. **Reset SOS demo** before the next run.
 
-Use **Setup → Location → Demo location** when testing on a laptop; use **Real GPS** on a phone.
+Location always comes from the device's real GPS (there is no demo location). If GPS isn't ready, the SOS still goes out and the pin follows on the first fix. Test on a phone via the https tunnel; responders must update their location from where they are.
 
 Run tests: `cd backend && .venv/bin/python -m pytest -q tests/test_sos.py`
 
