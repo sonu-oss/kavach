@@ -22,6 +22,8 @@ from app.vault import report, store
 from app.vault.schemas import EvidenceIn, TamperIn
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+# httpx logs every request URL, and Telegram API URLs contain the bot token.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 @asynccontextmanager
 async def lifespan(_app):
@@ -236,7 +238,7 @@ def sos_profile(body: ProfileIn):
     return {"name": people.set_her_name(body.name)}
 
 
-_EVENT = {"started": "sos_started", "first_fix": "location_found", "updated": "location_updated"}
+_EVENT = {"started": "sos_started", "first_fix": "location_found", "repeated": "sos_repeated"}
 
 
 @app.post("/sos")
@@ -246,6 +248,17 @@ async def sos_trigger(body: SosIn, request: Request):
     result = _sos_call(sos.trigger, DEMO_USER, loc, body.trigger, source, _public_base(request))
     _background(getattr(notify, _EVENT[result.pop("event")])(result["sos_id"]))
     return result
+
+
+@app.post("/sos/safe")
+async def sos_safe():
+    """'I'm safe' from any screen: ends her running SOS, if any, and tells contacts and responders."""
+    active = sos.active_for(DEMO_USER)
+    if not active:
+        return {"ended": False}
+    sos.cancel(active["sos_id"])
+    _background(notify.sos_ended(active["sos_id"]))
+    return {"ended": True, "sos_id": active["sos_id"]}
 
 
 @app.get("/sos/active")
@@ -285,6 +298,19 @@ async def responder_respond(sos_id: str, body: RespondIn):
     if result["status"] == "accepted" and result["changed"]:
         _background(notify.responder_accepted(sos_id, body.responder_id))
     return result
+
+
+@app.post("/reset")
+async def reset_everything():
+    """One button before a demo: ends any running SOS (pins stop), then clears SOS history and the Vault.
+    Trusted contacts, responders and her name stay, so the demo is ready to run again."""
+    active = sos.active_for(DEMO_USER)
+    if active:
+        sos.cancel(active["sos_id"])
+        await notify.sos_ended(active["sos_id"])  # before the history goes, so live pins are stopped
+    sos.reset()
+    store.clear()
+    return {"ok": True, "ended_sos": bool(active)}
 
 
 @app.delete("/sos/history")

@@ -7,7 +7,7 @@ from app import config
 from app.sos import crypto, db, notify, people, service
 
 # The real senders, kept before the autouse fixture replaces them for endpoint tests.
-REAL = {n: getattr(notify, n) for n in ("sos_started", "location_updated", "responder_accepted", "sos_ended", "location_found")}
+REAL = {n: getattr(notify, n) for n in ("sos_started", "location_updated", "responder_accepted", "sos_ended", "location_found", "sos_repeated")}
 
 HER = {"lat": 12.9352, "lng": 77.6245, "accuracy": 25}
 NEAR = (12.9390, 77.6290)  # ~0.6 km away
@@ -27,7 +27,7 @@ def fresh(tmp_path, monkeypatch):
     async def record(*args):
         sent.append(args)
 
-    for name in ("sos_started", "location_updated", "responder_accepted", "sos_ended", "location_found"):
+    for name in ("sos_started", "location_updated", "responder_accepted", "sos_ended", "location_found", "sos_repeated"):
         monkeypatch.setattr(notify, name, record)
     return sent
 
@@ -367,3 +367,49 @@ def test_responder_can_leave_the_network(client):
     assert client.delete(f"/people/{rid}").status_code == 200
     assert all(r["id"] != rid for r in client.get("/responders").json()["responders"])
     assert all(r["name"] != "Asha" for r in client.get(f"/sos/{sid}").json()["responders_alerted"])
+
+
+def test_pressing_again_alerts_everyone_again(fake_telegram):
+    sos_id, (asha,) = _start_sos(contacts=[("Mom", 111)], responders=[("Asha", 222)])
+    asyncio.run(REAL["sos_started"](sos_id))
+    first = len(fake_telegram)
+    p = people.create("contact", "Riya")  # added after the first press
+    people.link_telegram(p["link_code"], 333)
+    again = service.trigger("u", HER, "manual", "gps", "https://example.trycloudflare.com")
+    assert again["sos_id"] == sos_id and again["event"] == "repeated"
+    asyncio.run(REAL["sos_repeated"](sos_id))
+    texts = {p["chat_id"]: p["text"] for m, p in fake_telegram[first:] if m == "sendMessage"}
+    assert "pressed SOS again" in texts[111]
+    assert "SOS nearby" in texts[222]  # still pending: alert with Accept again
+    assert "SOS from" in texts[333]  # new contact gets the full first alert
+
+
+def test_reset_everything_ends_sos_and_keeps_people(client, fresh):
+    rid = responder(client, "Asha")
+    sid = send_sos(client).json()["sos_id"]
+    out = client.post("/reset").json()
+    assert out["ended_sos"]
+    assert any(args == (sid,) for args in fresh)  # sos_ended ran, so live pins stop
+    assert client.get("/sos/active").json()["active"] is None
+    assert client.get(f"/sos/{sid}").status_code == 404
+    assert client.get("/evidence").json()["records"] == []
+    assert any(r["id"] == rid for r in client.get("/responders").json()["responders"])
+
+
+def test_im_safe_from_any_screen_ends_the_running_sos(client, fresh):
+    assert client.post("/sos/safe").json() == {"ended": False}
+    sid = send_sos(client).json()["sos_id"]
+    out = client.post("/sos/safe").json()
+    assert out["ended"] and out["sos_id"] == sid
+    assert client.get(f"/sos/{sid}").json()["status"] == "cancelled"
+    assert client.get("/sos/active").json()["active"] is None
+
+
+def test_responders_are_told_they_need_not_go(fake_telegram):
+    sos_id, _ = _start_sos(contacts=[("Mom", 111)], responders=[("Asha", 222)])
+    asyncio.run(REAL["sos_started"](sos_id))
+    service.cancel(sos_id)
+    asyncio.run(REAL["sos_ended"](sos_id))
+    last = {p["chat_id"]: p["text"] for m, p in fake_telegram if m == "sendMessage"}
+    assert "don't need to go" in last[222]
+    assert "marked herself safe" in last[111]

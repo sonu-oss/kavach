@@ -229,11 +229,18 @@
     if (isPhone.matches) document.body.classList.add("calling");
   }
 
-  // Tapping the lock screen (after the call ends) returns to the app.
-  els.phone.querySelector('[data-screen="home"]').addEventListener("click", () => {
+  // Swiping up on the lock screen (like a real iPhone), or tapping it, returns to the app.
+  // Pointer events, not click: iOS Safari doesn't fire click on a plain div.
+  const lock = els.phone.querySelector('[data-screen="home"]');
+  let lockStartY = null;
+  lock.addEventListener("pointerdown", (e) => (lockStartY = e.clientY));
+  lock.addEventListener("pointerup", (e) => {
+    if (lockStartY === null) return;
+    lockStartY = null;
     if (!document.body.classList.contains("calling")) return;
     document.body.classList.remove("calling");
     ring();
+    if (current) window.kavachMobile?.show("panel"); // straight to the SOS status and I'm safe
   });
 
   function goHome() {
@@ -303,7 +310,7 @@
         body: JSON.stringify({ ciphertext, trigger, location_source: loc ? "gps" : "none" }),
       });
       if (current.updated_existing) {
-        addLog("SOS already active: location updated.", "ok");
+        addLog("SOS already on: alerting everyone again.", "ok");
       } else {
         const n = current.contacts_notified.length;
         addLog(n ? `Alerting ${n} trusted contact${n === 1 ? "" : "s"}…` : "No trusted contacts set up: add them in Setup.", n ? "ok" : "warn");
@@ -404,13 +411,22 @@
     }, 3000);
   }
 
-  async function imSafe() {
-    if (!current) return;
+  // Ends whatever SOS is running (even one started before a reload). Returns true if one was running.
+  async function markSafe() {
+    const { ended } = await api("/sos/safe", { method: "POST" });
     stopLive();
-    await api(`/sos/${current.sos_id}/cancel`, { method: "POST" }).catch(() => {});
     clearInterval(pollTimer);
-    addLog("Marked safe. Everyone was told and sharing stopped.", "ok");
-    current.status = "cancelled";
+    if (current) current.status = "cancelled";
+    if (ended) addLog("Marked safe. Everyone was told and sharing stopped.", "ok");
+    return ended;
+  }
+
+  async function imSafe() {
+    try {
+      await markSafe();
+    } catch (err) {
+      window.kavach.toast(`Couldn't reach Kavach: ${err.message}`);
+    }
     renderPanel();
   }
 
@@ -518,5 +534,5 @@
 
   els.btn.addEventListener("click", open);
   applyCaller();
-  window.kavachSos = { open, close };
+  window.kavachSos = { open, close, markSafe };
 })();

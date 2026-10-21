@@ -231,7 +231,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .app { grid-template-columns: 220px minmax(0, 1fr) 320px; }
 }
 @media (max-width: 820px) {
-  .app { grid-template-columns: 1fr; height: auto; padding: 16px; }
+  .app { grid-template-columns: minmax(0, 1fr); height: auto; padding: 16px; }
   .contacts { max-height: 220px; }
   .chat { height: 70vh; }
 }
@@ -576,7 +576,10 @@ body.sosing .shield__foot { display: none; }
 .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding: 70px 18px 34px; }
 .screen[hidden] { display: none; }
 .screen--incoming, .screen--incall { background: radial-gradient(120% 80% at 50% 0%, #4b5a73 0%, #232a36 55%, #10131a 100%); }
-.screen--home { background: linear-gradient(160deg, #2b3a67 0%, #6b4b8a 50%, #c46a7a 100%); padding-top: 80px; }
+.screen--home { background: linear-gradient(160deg, #2b3a67 0%, #6b4b8a 50%, #c46a7a 100%); padding-top: 80px; cursor: pointer; touch-action: none; }
+.lock__open { position: absolute; left: 0; right: 0; bottom: 14px; display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 13px; opacity: .85; }
+.lock__open i { width: 134px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.9); }
+body.calling .lock__open { bottom: calc(env(safe-area-inset-bottom) + 10px); }
 .caller { text-align: center; margin-top: 20px; }
 .caller__avatar { width: 84px; height: 84px; margin: 0 auto 14px; border-radius: 50%; display: grid; place-items: center; font-size: 36px; font-weight: 500; background: #8e98a8; }
 .caller__name { font-size: 30px; font-weight: 400; letter-spacing: .2px; }
@@ -790,6 +793,7 @@ body.sosing .app { height: calc(100vh - var(--topbar)); }
 .calls .call--urgent { border-color: rgba(255, 77, 79, .45); }
 .calls .call--urgent strong { color: var(--risk-high); }
 .home__tiles .tile--sos .tile__no { color: var(--risk-high); }
+.home__reset { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .warn-note { color: var(--risk-med); }
 .law__head { display: flex; flex-direction: column; gap: 2px; }
 
@@ -850,12 +854,14 @@ body.sosing .app { height: calc(100vh - var(--topbar)); }
 
   /* one pane at a time */
   .app {
-    grid-template-columns: 1fr; padding: 0;
+    grid-template-columns: minmax(0, 1fr); padding: 0;
     height: calc(100dvh - var(--topbar) - var(--flowbar) - var(--tabbar) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   }
   body.sosing .app { height: calc(100dvh - var(--topbar) - var(--tabbar) - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
   .contacts, .chat, .shield { display: none !important; border: none; max-height: none; height: 100%; }
   body.m-list .contacts, body.m-main .chat, body.m-panel .shield { display: flex !important; }
+  /* Sealing from the verdict pane: lay the chat out behind it for a moment so it can be captured */
+  body.capturing .chat { display: flex !important; position: fixed; inset: 0; z-index: -1; }
   .contacts { border: none; }
   .m-back {
     display: grid; place-items: center; flex: none; width: 34px; height: 34px; margin-right: 2px;
@@ -873,7 +879,7 @@ body.sosing .app { height: calc(100vh - var(--topbar)); }
   .details-grid { grid-template-columns: 1fr; }
   .review__meta { grid-template-columns: 1fr; }
   .composer { padding: 8px; }
-  .home { min-height: auto; padding: 28px 20px 24px; gap: 32px; justify-content: flex-start; }
+  .home { min-height: auto; padding: 28px 20px calc(env(safe-area-inset-bottom) + 88px); gap: 32px; justify-content: flex-start; }
   .home h1 { font-size: 40px; }
   .home__cta .btn { width: 100%; text-align: center; }
 
@@ -919,3 +925,12 @@ body.sosing .app { height: calc(100vh - var(--topbar)); }
   .toast { bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 70px); }
 }
 @media (max-width: 820px) { .m-pill { bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 74px); } }
+
+/* Complaint screen: finish with "I'm safe" or go home */
+.done-card { margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.done-card p { margin: 0 0 10px; }
+.done-card__acts { display: flex; gap: 10px; flex-wrap: wrap; }
+/* Leave room below the card so the floating "Laws & filing" button never covers it */
+@media (max-width: 820px) { .complaint__body { padding-bottom: 130px; } }
+/* Room under the last message so the floating "Risk ›" button doesn't cover it */
+@media (max-width: 820px) { .chat__body { padding-bottom: 72px; } }

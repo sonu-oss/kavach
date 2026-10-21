@@ -95,6 +95,31 @@
   document.querySelectorAll("[data-go]").forEach((el) => el.addEventListener("click", () => go(el.dataset.go)));
   document.querySelector("#home-link").addEventListener("click", goHome);
   setActive(null);
+  window.kavachHome = goHome;
+
+  // ---------- Reset everything (before a demo) ----------
+  // The server ends any running SOS and clears the Vault and SOS history; reloading
+  // clears the scanned chats and any draft, which only live on this page.
+  document.querySelector("#reset-all").addEventListener("click", async (e) => {
+    if (!confirm("Reset everything? This ends any running SOS and deletes sealed evidence. Contacts and responders stay.")) return;
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.textContent = "Resetting…";
+    try {
+      const res = await fetch(`${new URLSearchParams(location.search).get("api") || ""}/reset`, { method: "POST" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      try {
+        localStorage.removeItem("kavach.myDetails");
+      } catch {
+        /* nothing stored */
+      }
+      location.reload();
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = "Reset everything";
+      window.kavach?.toast(`Reset failed: ${err.message}`);
+    }
+  });
 
   // ---------- Scan → Check → Seal → Report bar ----------
   const steps = [...document.querySelectorAll("#flowbar [data-step]")];

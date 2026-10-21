@@ -245,8 +245,10 @@ def verify(rows: list[dict] | None = None) -> dict:
 def demo_tamper(record_id: int | None, rehash: bool) -> dict:
     with _lock, connect() as conn:
         if record_id is None:
+            # Never the newest record: a re-sealed last record has nothing after it to expose it.
             msgs = conn.execute(
-                "SELECT id FROM evidence WHERE kind='message' ORDER BY flagged DESC, id"
+                "SELECT id FROM evidence WHERE kind='message' AND id < (SELECT MAX(id) FROM evidence)"
+                " ORDER BY flagged DESC, id"
             ).fetchall()
             if not msgs:
                 raise EvidenceError("vault has no messages to tamper with")

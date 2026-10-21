@@ -249,6 +249,7 @@
   els.shield.addEventListener("click", (e) => {
     const jump = e.target.closest("[data-jump]");
     if (jump) {
+      window.kavachMobile?.show("main"); // on a phone the chat is behind this pane
       els.chatArea
         .querySelector(`[data-msg-id="${CSS.escape(jump.dataset.jump)}"]`)
         ?.scrollIntoView({ behavior: "smooth", block: "center" });

@@ -191,6 +191,39 @@ async def location_updated(sos_id: str) -> None:
                     log.warning("live location update for %s failed: %s", d["name"], exc)
 
 
+async def sos_repeated(sos_id: str) -> None:
+    """She pressed SOS again while it was on: a fresh notification for everyone still involved."""
+    await location_updated(sos_id)
+    s = service.get_sos(sos_id)
+    name = people.her_name()
+    track = f"{s['base_url']}/track.html?t={s['track_token']}"
+    jobs = []
+    for d in service.deliveries(sos_id):
+        if d["telegram"] is None:  # added since the first press: the full first alert
+            jobs.append(_alert_contact(s, d, name, track) if d["role"] == "contact" else _alert_responder(s, d, name))
+        elif d["role"] == "responder" and d["status"] == "pending":
+            jobs.append(_alert_responder(s, d, name))
+        elif d["role"] == "contact" or d["status"] == "accepted":
+            if d["role"] == "responder":  # accepted: already has her exact location
+                where = f"🧭 Directions: {_directions(s['lat'], s['lng'])}"
+            else:
+                where = f"Live location: {track}"
+            text = f"🔴 {name} pressed SOS again. She may still need help.\n\n{where}\n\nIf you can't reach her, call 112."
+            jobs.append(_remind(s, d, text))
+    await asyncio.gather(*jobs)
+
+
+async def _remind(s: dict, d: dict, text: str) -> None:
+    if not (telegram_on() and d["telegram_chat_id"]):
+        return
+    try:
+        await tg("sendMessage", chat_id=d["telegram_chat_id"], text=text, disable_web_page_preview=True)
+        if s["has_location"] and not d["live_message_id"]:
+            await _send_live_pin(s, d)
+    except Exception as exc:
+        log.warning("repeat SOS to %s failed: %s", d["name"], exc)
+
+
 async def responder_accepted(sos_id: str, person_id: str) -> None:
     s = service.get_sos(sos_id)
     ds = service.deliveries(sos_id)
@@ -227,8 +260,9 @@ async def sos_ended(sos_id: str) -> None:
         try:
             if d["live_message_id"]:
                 await tg("stopMessageLiveLocation", chat_id=d["telegram_chat_id"], message_id=d["live_message_id"])
-            await tg("sendMessage", chat_id=d["telegram_chat_id"],
-                     text=f"✅ {name} marked herself safe. Location sharing has stopped.")
+            text = (f"✅ {name} marked herself safe. Location sharing has stopped." if d["role"] == "contact" else
+                    f"✅ {name} is safe now. You don't need to go. Thank you for being ready to help.")
+            await tg("sendMessage", chat_id=d["telegram_chat_id"], text=text)
         except Exception as exc:
             log.warning("safe message to %s failed: %s", d["name"], exc)
 

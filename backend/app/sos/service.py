@@ -96,7 +96,7 @@ _km = coarse_km
 
 def trigger(user: str, loc: dict | None, trigger_kind: str, source: str, base_url: str) -> dict:
     """Returns the summary plus 'event':
-    'started' (notify everyone), 'updated' (move live pins) or 'first_fix' (location just became known).
+    'started' (notify everyone), 'repeated' (she pressed again: remind everyone) or 'first_fix' (location just became known).
     loc is None when her phone had no GPS fix: the SOS goes out anyway and the location follows."""
     has_loc = loc is not None
     lat, lng, accuracy = _parse_location(loc) if has_loc else (0.0, 0.0, 0.0)
@@ -104,15 +104,19 @@ def trigger(user: str, loc: dict | None, trigger_kind: str, source: str, base_ur
     with db.lock:
         active = _active(user)
         if active:
-            # Re-triggering while an SOS is active refreshes it: never block a person in danger twice.
+            # Pressing again while an SOS is active refreshes it and alerts everyone again:
+            # never block a person in danger twice, and never let a second press go unheard.
+            sid = active["id"]
+            _add_contacts(sid)  # anyone she added since the first press
             if not has_loc:
-                return {**summary(active["id"]), "updated_existing": True, "event": "updated"}
+                if active["has_location"]:
+                    _match_responders(sid, active["lat"], active["lng"])
+                return {**summary(sid), "updated_existing": True, "event": "repeated"}
             first_fix = not active["has_location"]
             db.run("UPDATE sos SET lat=?, lng=?, accuracy=?, approx_lat=?, approx_lng=?, source=?, has_location=1,"
-                   " updated_at=? WHERE id=?", lat, lng, accuracy, alat, alng, source, _now_iso(), active["id"])
-            if first_fix:
-                _match_responders(active["id"], lat, lng)
-            return {**summary(active["id"]), "updated_existing": True, "event": "first_fix" if first_fix else "updated"}
+                   " updated_at=? WHERE id=?", lat, lng, accuracy, alat, alng, source, _now_iso(), sid)
+            _match_responders(sid, lat, lng)
+            return {**summary(sid), "updated_existing": True, "event": "first_fix" if first_fix else "repeated"}
 
         recent = db.one("SELECT COUNT(*) AS n FROM sos WHERE user=? AND created_ts > ?", user, time.time() - RATE_WINDOW_S)
         if recent["n"] >= RATE_LIMIT:
@@ -135,6 +139,14 @@ def trigger(user: str, loc: dict | None, trigger_kind: str, source: str, base_ur
         if has_loc:  # without a location nobody can be matched yet; done on the first fix
             _match_responders(sos_id, lat, lng)
     return {**summary(sos_id), "updated_existing": False, "event": "started"}
+
+
+def _add_contacts(sos_id: str) -> None:
+    already = {a["person_id"] for a in db.rows("SELECT person_id FROM alerts WHERE sos_id=?", sos_id)}
+    for p in db.rows("SELECT id FROM people WHERE kind='contact'"):
+        if p["id"] not in already:
+            db.run("INSERT INTO alerts (sos_id, person_id, role, status, at) VALUES (?, ?, 'contact', 'notified', ?)",
+                   sos_id, p["id"], _now_iso())
 
 
 def _match_responders(sos_id: str, lat: float, lng: float) -> list[str]:

@@ -182,3 +182,14 @@ def test_she_can_clear_the_vault_without_demo_mode(monkeypatch):
     assert client.delete("/evidence").status_code == 200
     assert client.get("/evidence").json()["records"] == []
     assert not list((config.DATA_DIR / "screenshots").glob("*"))
+
+
+def test_demo_tamper_never_picks_the_last_record():
+    # A re-sealed last record has no later record to expose it, so the demo must skip it.
+    store.save_capture(capture(n=1, screenshot=False))
+    with pytest.raises(store.EvidenceError):
+        store.demo_tamper(None, True)
+    store.save_capture(capture(n=3, screenshot=False))
+    out = store.demo_tamper(None, True)
+    assert out["record_id"] < store.all_rows()[-1]["id"]
+    assert not store.verify()["ok"]

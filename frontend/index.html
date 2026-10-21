@@ -57,6 +57,10 @@
       <li data-go="shield"><span class="tile__no">03</span><strong>Report</strong><span>Complaint for cybercrime.gov.in</span></li>
       <li data-go="sos" class="tile--sos"><span class="tile__no">In danger?</span><strong>SOS</strong><span>Silent alert via a fake call</span></li>
     </ol>
+    <div class="home__reset">
+      <button type="button" class="btn btn--ghost small" id="reset-all">Reset everything</button>
+      <span class="muted small">Clears chats, Vault, drafts and SOS alerts. Contacts and responders stay.</span>
+    </div>
   </section>
 
   <div class="app">
@@ -174,7 +178,7 @@
         </header>
         <div class="vault__toolbar">
           <button id="verify-btn" type="button" class="btn">Verify chain</button>
-          <a id="report-btn" class="btn" href="/evidence/report" download="kavach-evidence-report.pdf">Export PDF report</a>
+          <a id="report-btn" class="btn" href="/evidence/report" download="kavach-evidence-report.pdf" target="_blank" rel="noopener">Export PDF report</a>
           <button id="clear-vault" type="button" class="btn btn--ghost">Clear vault</button>
         </div>
         <div id="vault-body" class="vault__body"></div>
@@ -210,6 +214,13 @@
           </details>
           <div id="complaint-loading" class="loading" hidden><div class="spinner"></div><span id="complaint-status">Finding the laws that apply…</span></div>
           <textarea id="letter" class="letter" spellcheck="true" aria-label="Complaint letter"></textarea>
+          <div class="done-card" id="complaint-done">
+            <p><strong>Done for now?</strong> <span class="muted">Tell your contacts and responders you're safe.</span></p>
+            <div class="done-card__acts">
+              <button type="button" class="btn safe-btn" id="complaint-safe">✅ I'm safe</button>
+              <button type="button" class="btn" id="complaint-home">Back to home</button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -260,6 +271,7 @@
               <div class="lock__time" id="lock-time">9:41</div>
               <div class="lock__date" id="lock-date"></div>
               <div class="notif"><strong>Phone</strong><span id="missed-text">Missed call: Mom</span></div>
+              <div class="lock__open"><span>Swipe up to open</span><i></i></div>
             </div>
           </div>
 

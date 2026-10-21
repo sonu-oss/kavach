@@ -96,6 +96,24 @@
     window.kavach.toast("Your details were cleared from this device");
   });
 
+  // After filing: tell everyone she's safe (ends a running SOS), then go home.
+  document.querySelector("#complaint-safe").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      const ended = await window.kavachSos.markSafe();
+      window.kavach.toast(ended ? "Contacts and responders were told you're safe" : "You're safe. No SOS was running, so nobody needed telling.");
+      btn.textContent = "✅ Marked safe";
+    } catch (err) {
+      btn.disabled = false;
+      window.kavach.toast(`Couldn't reach Kavach: ${err.message}`);
+    }
+  });
+  document.querySelector("#complaint-home").addEventListener("click", () => {
+    close();
+    window.kavachHome();
+  });
+
   // The draft only lives on this screen; deleting it leaves the sealed evidence alone.
   document.querySelector("#delete-draft").addEventListener("click", () => {
     if (!confirm("Delete this complaint draft?")) return;
@@ -128,6 +146,9 @@
     edited = false;
     data = null;
     tab = "laws";
+    const safeBtn = document.querySelector("#complaint-safe");
+    safeBtn.disabled = false;
+    safeBtn.textContent = "✅ I'm safe";
     if (!Object.values(details).some(Boolean)) els.details.open = true;
 
     const mySeq = ++seq;

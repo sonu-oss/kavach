@@ -105,6 +105,12 @@
   // own highlight badges, so the capture shows the chat as the victim saw it.
   async function captureChat(chatArea) {
     if (!window.html2canvas) return null;
+    // On a phone the verdict pane is open and the chat is hidden; a hidden element captures as nothing.
+    const hidden = chatArea.offsetParent === null;
+    if (hidden) {
+      document.body.classList.add("capturing");
+      await new Promise(requestAnimationFrame);
+    }
     // html2canvas copies ::before badges before onclone runs, so un-highlight the live DOM briefly.
     const flagged = [...chatArea.querySelectorAll(".msg.flagged")];
     flagged.forEach((m) => m.classList.remove("flagged"));
@@ -126,12 +132,14 @@
           el.style.overflow = "visible";
         },
       });
-      return canvas.toDataURL("image/png");
+      const url = canvas.toDataURL("image/png");
+      return url.startsWith("data:image/png") ? url : null; // an empty canvas gives "data:,"
     } catch (err) {
       console.warn("chat capture failed", err);
       return null;
     } finally {
       flagged.forEach((m) => m.classList.add("flagged"));
+      document.body.classList.remove("capturing");
     }
   }
 
