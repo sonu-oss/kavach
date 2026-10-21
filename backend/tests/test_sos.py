@@ -413,3 +413,14 @@ def test_responders_are_told_they_need_not_go(fake_telegram):
     last = {p["chat_id"]: p["text"] for m, p in fake_telegram if m == "sendMessage"}
     assert "don't need to go" in last[222]
     assert "marked herself safe" in last[111]
+
+
+def test_coordinates_go_to_contacts_and_accepting_responders_only(fake_telegram):
+    sos_id, (asha,) = _start_sos(contacts=[("Mom", 111)], responders=[("Asha", 222)])
+    asyncio.run(REAL["sos_started"](sos_id))
+    texts = lambda chat: [p["text"] for m, p in fake_telegram if m == "sendMessage" and p["chat_id"] == chat]
+    assert any("12.935200, 77.624500" in t for t in texts(111))  # contact: exact coordinates
+    assert not any("Coordinates" in t for t in texts(222))  # responder: approximate only
+    service.respond(sos_id, asha, "accept")
+    asyncio.run(REAL["responder_accepted"](sos_id, asha))
+    assert any("12.935200, 77.624500" in t for t in texts(222))

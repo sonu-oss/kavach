@@ -229,23 +229,40 @@
     if (isPhone.matches) document.body.classList.add("calling");
   }
 
-  // Swiping up on the lock screen (like a real iPhone), or tapping it, returns to the app.
-  // Pointer events, not click: iOS Safari doesn't fire click on a plain div.
+  // Leaving the fake lock screen must never fail: any tap, swipe or key does it, listened for on the
+  // whole document so nothing can swallow it, and it gives way by itself after a few seconds anyway.
   const lock = els.phone.querySelector('[data-screen="home"]');
-  let lockStartY = null;
-  lock.addEventListener("pointerdown", (e) => (lockStartY = e.clientY));
-  lock.addEventListener("pointerup", (e) => {
-    if (lockStartY === null) return;
-    lockStartY = null;
-    if (!document.body.classList.contains("calling")) return;
+  const LOCK_MAX_MS = 8000;
+  let lockShownAt = 0;
+  let lastDownAt = 0;
+  let lockTimer = null;
+
+  const onLock = () => document.body.classList.contains("calling") && !lock.hidden;
+
+  function leaveLock() {
+    clearTimeout(lockTimer);
+    if (!onLock()) return;
     document.body.classList.remove("calling");
     ring();
-    if (current) window.kavachMobile?.show("panel"); // straight to the SOS status and I'm safe
-  });
+    if (sosOn()) openLive(); // straight to the page with I'm safe
+  }
+
+  ["pointerdown", "touchstart", "mousedown"].forEach((t) =>
+    document.addEventListener(t, () => (lastDownAt = Date.now()), true)
+  );
+  ["pointerup", "touchend", "click", "keydown"].forEach((t) =>
+    document.addEventListener(t, () => {
+      // Ignore the finger that declined the call: only a touch that began on the lock screen counts.
+      if (onLock() && (t === "keydown" || lastDownAt > lockShownAt)) leaveLock();
+    }, true)
+  );
 
   function goHome() {
     clearInterval(callTimer);
     show("home");
+    lockShownAt = Date.now();
+    clearTimeout(lockTimer);
+    if (document.body.classList.contains("calling")) lockTimer = setTimeout(leaveLock, LOCK_MAX_MS);
   }
 
   // Hidden gesture: hold Decline. Whether or not SOS fires, the call simply ends.
@@ -318,6 +335,7 @@
       }
       startLive();
       startPolling();
+      updateBanner();
     } catch (err) {
       addLog(`SOS failed: ${esc(err.message)}. In a real emergency call 112.`, "warn");
     }
@@ -418,8 +436,82 @@
     clearInterval(pollTimer);
     if (current) current.status = "cancelled";
     if (ended) addLog("Marked safe. Everyone was told and sharing stopped.", "ok");
+    closeLive();
+    updateBanner();
     return ended;
   }
+
+  // ---------- SOS is on: banner on every screen + the page to end it ----------
+  const live = {
+    banner: $("#sos-banner"),
+    page: $("#sos-live"),
+    since: $("#sos-live-since"),
+    list: $("#sos-live-list"),
+    safe: $("#sos-live-safe"),
+    back: $("#sos-live-back"),
+  };
+  const sosOn = () => current?.status === "active";
+
+  function updateBanner() {
+    live.banner.hidden = !sosOn() || !live.page.hidden;
+    if (!live.page.hidden) renderLive();
+  }
+
+  function renderLive() {
+    if (!sosOn()) return;
+    const since = new Date(current.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    live.since.textContent = `Since ${since}. ${current.has_location ? "Your live location is being shared." : "Waiting for your location…"}`;
+    const told = (x) => (x.telegram === "sent" || x.email === "sent" ? "told" : "not reached");
+    const contacts = current.contacts_notified.map((x) => `<li><span>${esc(x.name)}<br><small>Trusted contact</small></span><small>${told(x)}</small></li>`);
+    const responders = current.responders_alerted.map((r) => `<li><span>${esc(r.name)}<br><small>Responder · ${esc(r.distance_km)} km</small></span><small>${r.status === "accepted" ? "on the way" : esc(r.status)}</small></li>`);
+    live.list.innerHTML = [...contacts, ...responders].join("") || `<li><span>Nobody is set up to be told yet.<br><small>Add trusted contacts in SOS → Setup.</small></span></li>`;
+  }
+
+  function openLive() {
+    live.page.hidden = false;
+    live.safe.disabled = false;
+    renderLive();
+    updateBanner();
+  }
+
+  function closeLive() {
+    live.page.hidden = true;
+    updateBanner();
+  }
+
+  live.banner.addEventListener("click", openLive);
+  live.back.addEventListener("click", closeLive);
+  live.safe.addEventListener("click", async () => {
+    live.safe.disabled = true;
+    try {
+      const ended = await markSafe();
+      window.kavach.toast(ended ? "You're marked safe. Everyone was told." : "No SOS was running.");
+      renderPanel();
+    } catch (err) {
+      live.safe.disabled = false;
+      window.kavach.toast(`Couldn't reach Kavach: ${err.message}`);
+    }
+  });
+
+  // Keep the banner right from any screen, even after a reload or an SOS ended elsewhere.
+  async function checkActive() {
+    try {
+      const { active } = await api("/sos/active");
+      if (active) {
+        if (current?.sos_id !== active.sos_id) startPolling();
+        current = { ...current, ...active };
+      } else if (sosOn()) {
+        current.status = "cancelled";
+        stopLive();
+        closeLive();
+      }
+      updateBanner();
+    } catch {
+      /* offline: keep what we know */
+    }
+  }
+  checkActive();
+  setInterval(checkActive, 5000);
 
   async function imSafe() {
     try {
@@ -534,5 +626,5 @@
 
   els.btn.addEventListener("click", open);
   applyCaller();
-  window.kavachSos = { open, close, markSafe };
+  window.kavachSos = { open, close, markSafe, openLive };
 })();

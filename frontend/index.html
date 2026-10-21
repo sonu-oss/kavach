@@ -343,6 +343,24 @@
     <button type="button" data-tab="sos" class="tab-sos"><span aria-hidden="true">●</span>SOS</button>
   </nav>
 
+  <!-- While an SOS is on: a banner on every screen, and a page to end it -->
+  <button type="button" class="sos-banner" id="sos-banner" hidden>
+    <span class="sos-dot" aria-hidden="true"></span>
+    <span class="sos-banner__text">SOS is on · sharing your location</span>
+    <span class="sos-banner__go">Open ›</span>
+  </button>
+  <section class="sos-live" id="sos-live" hidden aria-label="Your SOS is on">
+    <div class="sos-live__inner">
+      <p class="sos-live__tag"><span class="sos-dot" aria-hidden="true"></span> SOS is on</p>
+      <h2 class="sos-live__title">Help has been alerted</h2>
+      <p class="muted" id="sos-live-since"></p>
+      <ul class="sos-live__list" id="sos-live-list"></ul>
+      <button type="button" class="btn btn--lg btn--block safe-btn" id="sos-live-safe">✅ I'm safe · stop sharing</button>
+      <button type="button" class="btn btn--block" id="sos-live-back">Back to the app</button>
+      <a class="btn btn--block sos-live__call" href="tel:112">Still in danger? Call 112</a>
+    </div>
+  </section>
+
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
   <script src="conversations.js"></script>
   <script src="app.js"></script>

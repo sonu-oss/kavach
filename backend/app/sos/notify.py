@@ -93,6 +93,11 @@ def _maps(lat, lng) -> str:
     return f"https://maps.google.com/?q={lat:.6f},{lng:.6f}"
 
 
+def _coords(lat, lng) -> str:
+    """Exact coordinates as text, to read out to the police or paste into any maps app."""
+    return f"📍 Coordinates: {lat:.6f}, {lng:.6f}"
+
+
 def _directions(lat, lng) -> str:
     """Opens Google Maps (app or web) with a route from wherever the reader is to her."""
     return f"https://www.google.com/maps/dir/?api=1&destination={lat:.6f},{lng:.6f}"
@@ -112,7 +117,7 @@ async def sos_started(sos_id: str) -> None:
 
 
 async def _alert_contact(s: dict, d: dict, name: str, track: str) -> None:
-    where = (f"Live location: {track}" if s["has_location"] else
+    where = (f"{_coords(s['lat'], s['lng'])}\nLive location: {track}" if s["has_location"] else
              f"Her phone hasn't found her location yet. You'll get a live pin here as soon as it does.\nLink: {track}")
     text = (f"🚨 SOS from {name}\n\nShe triggered a silent SOS and may need help right now.\n\n"
             f"{where}\n\nIf you can't reach her, call 112.")
@@ -209,9 +214,9 @@ async def sos_repeated(sos_id: str) -> None:
             jobs.append(_alert_responder(s, d, name))
         elif d["role"] == "contact" or d["status"] == "accepted":
             if d["role"] == "responder":  # accepted: already has her exact location
-                where = f"🧭 Directions: {_directions(s['lat'], s['lng'])}"
+                where = f"{_coords(s['lat'], s['lng'])}\n🧭 Directions: {_directions(s['lat'], s['lng'])}"
             else:
-                where = f"Live location: {track}"
+                where = (f"{_coords(s['lat'], s['lng'])}\n" if s["has_location"] else "") + f"Live location: {track}"
             text = f"🔴 {name} pressed SOS again. She may still need help.\n\n{where}\n\nIf you can't reach her, call 112."
             jobs.append(_remind(s, d, text))
     await asyncio.gather(*jobs)
@@ -236,6 +241,7 @@ async def responder_accepted(sos_id: str, person_id: str) -> None:
         try:
             await tg("sendMessage", chat_id=me["telegram_chat_id"],
                      text="✅ Thank you. Her exact location is shared with you only.\n\n"
+                          f"{_coords(s['lat'], s['lng'])} (±{round(s['accuracy'])} m)\n"
                           f"🧭 Directions: {_directions(s['lat'], s['lng'])}\n\n"
                           "The live pin below follows her as she moves. Tap it for directions too.\n"
                           f"Dashboard: {s['base_url']}/responder.html?as={person_id}\n\nIf it's serious, call 112 too.",
