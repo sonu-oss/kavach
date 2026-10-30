@@ -280,6 +280,35 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .helpline a { color: var(--brand); font-weight: 600; }
 
+/* ---------- Kavach Guardian (agent) ---------- */
+.guardian { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.guardian__row { display: flex; gap: 6px; }
+.guardian__row input {
+  flex: 1; min-width: 0; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 10px; color: var(--text);
+}
+.guardian__row input:focus { outline: 2px solid var(--brand); outline-offset: -1px; }
+.guardian__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.guardian__chips .chip { cursor: pointer; }
+.guardian__chips .chip:hover { color: var(--text); border-color: var(--border-strong); }
+
+.agent { display: flex; flex-direction: column; gap: 12px; animation: fade .25s ease; }
+.agent__answer { margin: 0; font-size: 14px; line-height: 1.5; }
+.agent__steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; counter-reset: step; }
+.agent__steps li {
+  counter-increment: step; display: grid; grid-template-columns: 22px 1fr; gap: 2px 8px;
+  font-size: 12.5px; padding: 8px 10px; border-radius: 8px; background: var(--surface-2);
+  border-left: 3px solid var(--risk-low); animation: fade .25s ease both;
+}
+.agent__steps li.fail { border-left-color: var(--risk-med); }
+.agent__steps li::before { content: counter(step); grid-row: span 2; color: var(--muted); font-weight: 700; }
+.agent__tool { font-weight: 600; }
+.agent__sum { color: var(--muted); overflow-wrap: anywhere; }
+.agent__hits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.agent__hits li { font-size: 12.5px; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); }
+.agent__hits .muted { font-size: 11px; }
+.agent__sos { border-color: var(--risk-high); color: var(--risk-high); }
+
 .loading { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 0; color: var(--muted); }
 .spinner {
   width: 28px; height: 28px; border-radius: 50%;
@@ -499,8 +528,10 @@ body.vaulting .composer { display: none; }
 .demo-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .demo-actions .btn { font-size: 12px; padding: 7px 10px; }
 
-body.vaulting .shield__foot,
 body.importing .shield__foot { display: none; }
+/* In the Vault, Guardian stays for searching evidence; scanning needs an open chat. */
+body.vaulting #scan-btn,
+body.vaulting [data-needs-chat] { display: none; }
 
 /* ---------- complaint assistant ---------- */
 body.complaining .chat__head,

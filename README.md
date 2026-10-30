@@ -32,6 +32,35 @@ Click **Scan a screenshot** (or just press ⌘V / Ctrl+V with a screenshot on th
 
 `frontend/samples/` holds two test screenshots: Hinglish in light mode and Kannada-English in dark mode. Load them with **Try a sample**. The first time, the text reader downloads about 10 MB of language data from a CDN, so do one run before the demo while online.
 
+## Vector database (ChromaDB)
+
+Kavach keeps its embeddings in **ChromaDB**, stored on disk in `backend/data/chroma/`. It runs inside the app, so there is no separate server to start. The vectors come from `BAAI/bge-small-en-v1.5` (fastembed), which runs on the machine, so no text is sent anywhere to be embedded. About 65 MB is downloaded the first time.
+
+- **`legal_sections`:** the 19 laws in `legal_corpus.json`. The Complaint Assistant's meaning-based search runs against this collection, and it is rebuilt automatically when the corpus file changes.
+- **`evidence`:** one vector per sealed Vault message, added after each save. Personal details are masked first, and slang (`kaaythini` = "I will wait for you") gets its English meaning added, because the model only knows English. SQLite stays the sealed source of truth: each search hit is read back from the hash-chained record, along with its tamper-check result.
+
+`GET /evidence/search?q=when did he mention my college` finds *"REVA gate hatra kaaythini 5 ge"*, even though "college" never appears in it. Options: `k`, `conversation`, `flagged_only`.
+
+## Kavach Guardian (AI agent)
+
+The **Ask Kavach Guardian** box sits under the risk panel. You ask in plain words, and the agent (`POST /agent`, Groq tool calling) decides which tools to use, step by step:
+
+| Tool | What it does |
+|---|---|
+| `analyze_chat` | Smart Shield risk check of the open chat |
+| `save_to_vault` | Seals the chat and its screenshot in the Evidence Vault |
+| `find_laws` | Searches the legal sections in the vector DB |
+| `draft_complaint` | Complaint Assistant draft from the sealed evidence |
+| `search_evidence` | Searches sealed messages by meaning |
+| `suggest_sos` | Shows the SOS button; **sends nothing** |
+
+The panel shows every step the agent took. Guardrails:
+- Only these tools can run, with at most 6 model turns and 8 tool calls.
+- The chat text never goes into the agent's own prompt. It only reaches the model through `analyze_chat`, which masks personal details.
+- The agent never contacts anyone.
+
+Without a Groq key, or if the model fails partway, a fixed plan finishes the job without repeating steps that already ran. The page shows which of the two answered.
+
 ## Features 4–5: Discreet SOS and Responder Network
 
 **Real alerts to real people.** Holding **Decline** for 2 seconds on a fake "Mom" call silently sends an SOS. The screen looks like an ordinary declined call.

@@ -330,6 +330,18 @@
       </div>
 
       <footer class="shield__foot">
+        <form class="guardian" id="guardian-form" autocomplete="off">
+          <label class="section-title" for="guardian-input">Ask Kavach Guardian</label>
+          <div class="guardian__row">
+            <input id="guardian-input" maxlength="500" placeholder="e.g. Handle this chat for me" />
+            <button class="btn btn--primary" type="submit" id="guardian-go">Ask</button>
+          </div>
+          <div class="guardian__chips">
+            <button type="button" class="chip" data-needs-chat data-goal="Handle this chat for me: check it, save the evidence and draft a complaint if it's serious.">Handle this chat</button>
+            <button type="button" class="chip" data-needs-chat data-goal="Is this chat dangerous? Just tell me, don't save anything.">Is this dangerous?</button>
+            <button type="button" class="chip" data-goal="When did he mention where I live or study?">Search my evidence</button>
+          </div>
+        </form>
         <button id="scan-btn" class="btn btn--block">Scan again</button>
         <p class="muted tiny">Personal details are masked before the AI sees anything.</p>
       </footer>
@@ -372,6 +384,7 @@
   <script src="import.js"></script>
   <script src="vault.js"></script>
   <script src="complaint.js"></script>
+  <script src="guardian.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" defer></script>
   <script src="sos.js"></script>
   <script src="nav.js"></script>

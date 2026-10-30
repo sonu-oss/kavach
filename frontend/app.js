@@ -342,7 +342,14 @@
     openChat(activeId || conversations.find((c) => c.id === "rahul")?.id || conversations[0].id);
   }
 
-  window.kavach = { results, conversations, captureVisibleMessages, scan, addConversation, deselect, toast, openShield, callsHtml };
+  // Takes a verdict produced elsewhere (the Guardian agent) as if this panel had scanned it.
+  function adoptResult(convId, result) {
+    results[convId] = result;
+    renderContacts();
+    if (convId === activeId) renderVerdict(result);
+  }
+
+  window.kavach = { results, conversations, active, captureVisibleMessages, scan, addConversation, deselect, toast, openShield, callsHtml, adoptResult, esc };
 
   checkHealth();
   renderContacts();

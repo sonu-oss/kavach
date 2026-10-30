@@ -2,13 +2,14 @@
 
 Three rankers, fused with Reciprocal Rank Fusion (RRF):
   1. BM25 over title + summary + keywords (lexical: catches "stalking", "UPI", "acid")
-  2. Dense embeddings (fastembed, BAAI/bge-small-en-v1.5, runs locally; semantic:
+  2. Dense embeddings stored in the ChromaDB vector database (app/vectors.py; semantic:
      "he says he'll wait near my college" ~ stalking without the word)
   3. A category prior from the Smart Shield verdict (sections tagged for that threat type)
 
 If the embedding model can't load (offline first run), retrieval degrades to BM25 + prior.
 """
 
+import hashlib
 import json
 import logging
 import math
@@ -18,12 +19,11 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
-from app import config
+from app import vectors
 
 log = logging.getLogger("kavach.complaint")
 
 CORPUS_PATH = Path(__file__).with_name("legal_corpus.json")
-EMBED_MODEL = "BAAI/bge-small-en-v1.5"
 RRF_K = 60
 
 
@@ -81,29 +81,41 @@ def _bm25() -> BM25:
     return BM25([tokenize(_doc_text(s)) for s in corpus()])
 
 
-_embedder = None
-_doc_vectors = None
+LAW_COLLECTION = "legal_sections"
 _embed_failed = False
 
 
+def _fingerprint(s: dict) -> str:
+    return hashlib.sha256(_doc_text(s).encode()).hexdigest()[:16]
+
+
+def _laws():
+    """The legal_sections collection, (re)built when the corpus file has changed."""
+    col = vectors.collection(LAW_COLLECTION)
+    want = {s["id"]: _fingerprint(s) for s in corpus()}
+    have = col.get(include=["metadatas"])
+    if {i: m.get("fp") for i, m in zip(have["ids"], have["metadatas"])} != want:
+        vectors.drop(LAW_COLLECTION)
+        col = vectors.collection(LAW_COLLECTION)
+        col.add(
+            ids=[s["id"] for s in corpus()],
+            documents=[_doc_text(s) for s in corpus()],
+            embeddings=vectors.embed_docs([_doc_text(s) for s in corpus()]),
+            metadatas=[{"act": s["act"], "categories": ",".join(s["categories"]), "fp": want[s["id"]]} for s in corpus()],
+        )
+        log.info("indexed %d legal sections in the vector database", len(want))
+    return col
+
+
 def _dense_scores(query: str) -> list[float] | None:
-    """Cosine similarity of the query to every section, or None if embeddings are unavailable."""
-    global _embedder, _doc_vectors, _embed_failed
+    """Cosine similarity of the query to every section, from the vector DB; None if unavailable."""
+    global _embed_failed
     if _embed_failed:
         return None
     try:
-        if _embedder is None:
-            import numpy as np
-            from fastembed import TextEmbedding
-
-            _embedder = TextEmbedding(EMBED_MODEL, cache_dir=str(config.DATA_DIR / "models"))
-            vecs = np.array(list(_embedder.embed([_doc_text(s) for s in corpus()])))
-            _doc_vectors = vecs / np.linalg.norm(vecs, axis=1, keepdims=True)
-        import numpy as np
-
-        q = np.array(list(_embedder.query_embed(query)))[0]
-        q = q / np.linalg.norm(q)
-        return (_doc_vectors @ q).tolist()
+        res = _laws().query(query_embeddings=[vectors.embed_query(query)], n_results=len(corpus()))
+        sim = {i: 1 - d for i, d in zip(res["ids"][0], res["distances"][0])}
+        return [sim.get(s["id"], 0.0) for s in corpus()]
     except Exception as exc:  # offline, model download blocked, etc.
         log.warning("dense retrieval unavailable, using BM25 + prior only: %s", exc)
         _embed_failed = True
