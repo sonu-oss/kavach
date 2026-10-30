@@ -325,8 +325,8 @@
   }
 
   // Removes imported screenshots, typed messages and risk results, so the inbox is back to the demo chats.
-  document.querySelector("#clear-chats").addEventListener("click", () => {
-    if (!confirm("Clear scanned chats and results? Sealed evidence stays in the Vault.")) return;
+  document.querySelector("#clear-chats").addEventListener("click", async () => {
+    if (!(await kavachConfirm("Clear scanned chats and results? Sealed evidence stays in the Vault.", { ok: "Clear", danger: true }))) return;
     const fresh = structuredClone(window.SEED_CONVERSATIONS).map((c) => ({
       ...c,
       messages: c.messages.map((m, i) => ({ ...m, id: `${c.id}-${i + 1}` })),

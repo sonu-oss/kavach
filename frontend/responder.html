@@ -60,6 +60,7 @@
   </aside>
   <div id="map"></div>
 
+  <script src="dialog.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
   <script>
@@ -161,13 +162,13 @@
             const p = await locate();
             await api(`/people/${r.id}`, { method: "PATCH", body: JSON.stringify(p) });
             loadResponders();
-          } catch (err) { alert(err.message); }
+          } catch (err) { kavachAlert(err.message); }
         };
         $("#leave").onclick = async () => {
-          if (!confirm("Leave the responder network? Your name, location and alerts are deleted.")) return;
+          if (!(await kavachConfirm("Leave the responder network? Your name, location and alerts are deleted.", { ok: "Leave", danger: true }))) return;
           try {
             await api(`/people/${r.id}`, { method: "DELETE" });
-          } catch (err) { return alert(err.message); }
+          } catch (err) { return kavachAlert(err.message); }
           me = null; store.set(null);
           await loadResponders();
           refresh();
@@ -207,7 +208,7 @@
           await loadResponders();
           if (p.telegram_link) showTelegram(p.telegram_link);
         } catch (err) {
-          alert(`Sign-up failed: ${err.message}`);
+          kavachAlert(`Sign-up failed: ${err.message}`);
           btn.disabled = false; btn.textContent = "Use my location and sign up";
         }
       }
@@ -314,7 +315,7 @@
         const btn = e.target.closest("[data-act]");
         if (btn) {
           btn.disabled = true;
-          await api(`/sos/${btn.dataset.id}/respond`, { method: "POST", body: JSON.stringify({ responder_id: me, action: btn.dataset.act }) }).catch((err) => alert(err.message));
+          await api(`/sos/${btn.dataset.id}/respond`, { method: "POST", body: JSON.stringify({ responder_id: me, action: btn.dataset.act }) }).catch((err) => kavachAlert(err.message));
           lastKey = "";
           return refresh();
         }

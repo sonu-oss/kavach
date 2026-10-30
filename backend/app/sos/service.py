@@ -76,6 +76,14 @@ def _get(sos_id: str) -> dict:
     return s
 
 
+LEGACY_USER = "demo-user"  # SOS saved before accounts existed
+
+
+def owner_of(s: dict) -> str | None:
+    """The account an SOS belongs to, as stored on its contacts and profile (None: before accounts)."""
+    return None if s["user"] == LEGACY_USER else s["user"]
+
+
 def _active(user: str) -> dict | None:
     _expire_old()
     return db.one("SELECT * FROM sos WHERE user=? AND status='active' ORDER BY created_ts DESC LIMIT 1", user)
@@ -107,7 +115,7 @@ def trigger(user: str, loc: dict | None, trigger_kind: str, source: str, base_ur
             # Pressing again while an SOS is active refreshes it and alerts everyone again:
             # never block a person in danger twice, and never let a second press go unheard.
             sid = active["id"]
-            _add_contacts(sid)  # anyone she added since the first press
+            _add_contacts(sid, None if user == LEGACY_USER else user)  # anyone she added since the first press
             if not has_loc:
                 if active["has_location"]:
                     _match_responders(sid, active["lat"], active["lng"])
@@ -132,7 +140,8 @@ def trigger(user: str, loc: dict | None, trigger_kind: str, source: str, base_ur
                 (sos_id, user, lat, lng, accuracy, alat, alng, trigger_kind, source, secrets.token_urlsafe(16),
                  now + TRACK_TTL_S, base_url, int(has_loc), now, _now_iso(), _now_iso()),
             )
-            for p in c.execute("SELECT * FROM people WHERE kind='contact'").fetchall():
+            for p in c.execute("SELECT * FROM people WHERE kind='contact' AND owner IS ?",
+                               (None if user == LEGACY_USER else user,)).fetchall():
                 c.execute("INSERT INTO alerts (sos_id, person_id, role, status, at) VALUES (?, ?, 'contact', 'notified', ?)",
                           (sos_id, p["id"], _now_iso()))
             c.execute("COMMIT")
@@ -141,9 +150,9 @@ def trigger(user: str, loc: dict | None, trigger_kind: str, source: str, base_ur
     return {**summary(sos_id), "updated_existing": False, "event": "started"}
 
 
-def _add_contacts(sos_id: str) -> None:
+def _add_contacts(sos_id: str, owner: str | None) -> None:
     already = {a["person_id"] for a in db.rows("SELECT person_id FROM alerts WHERE sos_id=?", sos_id)}
-    for p in db.rows("SELECT id FROM people WHERE kind='contact'"):
+    for p in db.rows("SELECT id FROM people WHERE kind='contact' AND owner IS ?", owner):
         if p["id"] not in already:
             db.run("INSERT INTO alerts (sos_id, person_id, role, status, at) VALUES (?, ?, 'contact', 'notified', ?)",
                    sos_id, p["id"], _now_iso())
@@ -246,10 +255,10 @@ def track(token: str) -> dict:
     on_way = db.rows("SELECT p.name FROM alerts a JOIN people p ON p.id=a.person_id"
                      " WHERE a.sos_id=? AND a.role='responder' AND a.status='accepted'", s["id"])
     if not s["has_location"]:
-        return {"status": s["status"], "name": people.her_name(), "waiting_for_location": True,
+        return {"status": s["status"], "name": people.her_name(owner_of(s)), "waiting_for_location": True,
                 "created_at": s["created_at"], "updated_at": s["updated_at"], "responders_on_the_way": []}
     return {
-        "status": s["status"], "name": people.her_name(),
+        "status": s["status"], "name": people.her_name(owner_of(s)),
         "lat": s["lat"], "lng": s["lng"], "accuracy": s["accuracy"],
         "created_at": s["created_at"], "updated_at": s["updated_at"],
         "responders_on_the_way": [r["name"] for r in on_way],
@@ -319,11 +328,15 @@ def record_delivery(sos_id: str, person_id: str, **fields) -> None:
             db.run(f"UPDATE alerts SET {cols} WHERE sos_id=? AND person_id=?", *allowed.values(), sos_id, person_id)
 
 
-def reset() -> None:
-    """Clears SOS history (keeps contacts and responders)."""
+def reset(user: str | None = None) -> None:
+    """Clears SOS history (keeps contacts and responders): one account's, or everyone's when user is None."""
     with db.lock:
-        db.run("DELETE FROM alerts")
-        db.run("DELETE FROM sos")
+        if user is None:
+            db.run("DELETE FROM alerts")
+            db.run("DELETE FROM sos")
+        else:
+            db.run("DELETE FROM alerts WHERE sos_id IN (SELECT id FROM sos WHERE user=?)", user)
+            db.run("DELETE FROM sos WHERE user=?", user)
 
 
 def clear_history(user: str) -> None:
@@ -331,4 +344,4 @@ def clear_history(user: str) -> None:
     _expire_old()
     if _active(user):
         raise SosError("Your SOS is still on. Tap I'm safe first.", 409)
-    reset()
+    reset(user)

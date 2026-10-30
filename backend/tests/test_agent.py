@@ -13,6 +13,7 @@ from app.schemas import AnalyzeResponse
 from app.vault import index, store
 
 from tests.test_vectors import fake_embed
+from conftest import signed_in
 
 SEXTORTION = {
     "name": "rahul_k_07",
@@ -193,6 +194,7 @@ def test_saving_twice_seals_once(model):
 def test_api_endpoint():
     from app.main import app
 
-    res = TestClient(app).post("/agent", json={"goal": "is this dangerous?", "conversation": SAFE})
+    client = signed_in(TestClient(app))
+    res = client.post("/agent", json={"goal": "is this dangerous?", "conversation": SAFE})
     assert res.status_code == 200 and res.json()["analysis"]["category"] == "safe"
-    assert TestClient(app).post("/agent", json={"goal": ""}).status_code == 422
+    assert client.post("/agent", json={"goal": ""}).status_code == 422

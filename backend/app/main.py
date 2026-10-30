@@ -2,14 +2,16 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app import config
 from app.agent.guardian import run_agent
 from app.agent.schemas import AgentIn
+from app.auth import accounts, context
+from app.auth.schemas import LoginIn, SignupIn
 from app.schemas import AnalyzeRequest, AnalyzeResponse
 from app.shield.classifier import analyze
 from app.complaint.drafting import ComplaintError, build_complaint
@@ -60,6 +62,81 @@ async def revalidate_static(request, call_next):
     return response
 
 
+SESSION_COOKIE = "kavach_session"
+# Pages that need an account. Responder, live-tracking and connect pages stay open: they carry their own codes.
+_PRIVATE_PAGES = {"/", "/index.html"}
+
+
+@app.middleware("http")
+async def session(request: Request, call_next):
+    """Reads the session cookie and sets the signed-in account for this request."""
+    user = accounts.user_for_session(request.cookies.get(SESSION_COOKIE))
+    if request.method == "GET" and request.url.path in _PRIVATE_PAGES and not user:
+        return RedirectResponse("/login.html", status_code=303)
+    token = context.set_current(user["id"] if user else None)
+    try:
+        return await call_next(request)
+    finally:
+        context.reset(token)
+
+
+def require_user() -> str:
+    uid = context.current()
+    if not uid:
+        raise HTTPException(401, "Please log in")
+    return uid
+
+
+signed_in = [Depends(require_user)]
+
+
+# ---------- accounts ----------
+
+def _set_session(response: Response, request: Request, token: str) -> None:
+    response.set_cookie(
+        SESSION_COOKIE, token, max_age=accounts.SESSION_TTL_S, httponly=True, samesite="lax",
+        secure=_request_base(request).startswith("https://"), path="/",
+    )
+
+
+@app.post("/auth/signup")
+def auth_signup(body: SignupIn, request: Request):
+    try:
+        user = accounts.signup(body.username, body.password)
+    except accounts.AuthError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+    response = JSONResponse({"user": user})
+    _set_session(response, request, accounts.new_session(user["id"]))
+    return response
+
+
+@app.post("/auth/login")
+def auth_login(body: LoginIn, request: Request):
+    try:
+        user, token = accounts.login(body.username, body.password)
+    except accounts.AuthError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+    response = JSONResponse({"user": user})
+    _set_session(response, request, token)
+    return response
+
+
+@app.post("/auth/logout")
+def auth_logout(request: Request):
+    accounts.logout(request.cookies.get(SESSION_COOKIE))
+    response = JSONResponse({"ok": True})
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return response
+
+
+@app.get("/auth/me")
+def auth_me(request: Request):
+    user = accounts.user_for_session(request.cookies.get(SESSION_COOKIE))
+    if not user:
+        raise HTTPException(401, "Please log in")
+    return {"user": user}
+
+
 @app.get("/health")
 def health():
     return {
@@ -72,14 +149,14 @@ def health():
     }
 
 
-@app.post("/analyze", response_model=AnalyzeResponse)
+@app.post("/analyze", response_model=AnalyzeResponse, dependencies=signed_in)
 async def analyze_conversation(req: AnalyzeRequest) -> AnalyzeResponse:
     return await analyze(req)
 
 
 # ---------- Kavach Guardian (AI agent) ----------
 
-@app.post("/agent")
+@app.post("/agent", dependencies=signed_in)
 async def guardian(req: AgentIn):
     """She asks in plain words; the agent picks Kavach's tools step by step and reports the trail."""
     return await run_agent(req)
@@ -87,7 +164,7 @@ async def guardian(req: AgentIn):
 
 # ---------- Evidence Vault ----------
 
-@app.post("/evidence")
+@app.post("/evidence", dependencies=signed_in)
 def save_evidence(item: EvidenceIn, background: BackgroundTasks):
     try:
         sealed = store.save_capture(item)
@@ -98,7 +175,7 @@ def save_evidence(item: EvidenceIn, background: BackgroundTasks):
     return sealed
 
 
-@app.get("/evidence/search")
+@app.get("/evidence/search", dependencies=signed_in)
 def search_evidence(q: str, k: int = 5, conversation: str | None = None, flagged_only: bool = False):
     """Semantic search over sealed messages ("when did he talk about my college?")."""
     if not q.strip():
@@ -110,18 +187,18 @@ def search_evidence(q: str, k: int = 5, conversation: str | None = None, flagged
     return {"query": q, "results": hits}
 
 
-@app.get("/evidence")
+@app.get("/evidence", dependencies=signed_in)
 def list_evidence():
     rows = store.all_rows()
     return {"records": rows, "verification": store.verify(rows)}
 
 
-@app.get("/evidence/verify")
+@app.get("/evidence/verify", dependencies=signed_in)
 def verify_evidence():
     return store.verify()
 
 
-@app.get("/evidence/report")
+@app.get("/evidence/report", dependencies=signed_in)
 def evidence_report():
     pdf = report.build_report()
     return Response(
@@ -131,15 +208,15 @@ def evidence_report():
     )
 
 
-@app.get("/evidence/screenshot/{digest}")
+@app.get("/evidence/screenshot/{digest}", dependencies=signed_in)
 def evidence_screenshot(digest: str):
-    path = store.screenshot_path(digest)
+    path = store.screenshot_path(digest) if store.owns_screenshot(digest) else None
     if path is None:
         raise HTTPException(404, "screenshot not found")
     return FileResponse(path)
 
 
-@app.delete("/evidence")
+@app.delete("/evidence", dependencies=signed_in)
 def clear_evidence():
     """Deletes everything in the Vault. Asked for by her, after use."""
     store.clear()
@@ -147,7 +224,7 @@ def clear_evidence():
     return {"ok": True}
 
 
-@app.post("/evidence/demo/tamper")
+@app.post("/evidence/demo/tamper", dependencies=signed_in)
 def demo_tamper(body: TamperIn):
     if not config.DEMO_MODE:
         raise HTTPException(403, "demo mode is off")
@@ -157,7 +234,7 @@ def demo_tamper(body: TamperIn):
         raise HTTPException(400, str(exc)) from exc
 
 
-@app.post("/evidence/demo/reset")
+@app.post("/evidence/demo/reset", dependencies=signed_in)
 def demo_reset():
     if not config.DEMO_MODE:
         raise HTTPException(403, "demo mode is off")
@@ -168,21 +245,28 @@ def demo_reset():
 
 # ---------- Complaint Assistant ----------
 
-@app.post("/complaint")
+@app.post("/complaint", dependencies=signed_in)
 async def draft_complaint(body: ComplaintIn):
+    _own_capture(body.capture_id)
     try:
         return await build_complaint(body.capture_id)
     except ComplaintError as exc:
         raise HTTPException(404, str(exc)) from exc
 
 
-@app.post("/complaint/pdf")
+@app.post("/complaint/pdf", dependencies=signed_in)
 def complaint_pdf(body: ComplaintPdfIn):
+    _own_capture(body.capture_id)
     return Response(
         build_complaint_pdf(body),
         media_type="application/pdf",
         headers={"Content-Disposition": 'attachment; filename="kavach-complaint.pdf"'},
     )
+
+
+def _own_capture(capture_id: str) -> None:
+    if not any(r["capture_id"] == capture_id for r in store.all_rows()):
+        raise HTTPException(404, "capture not found in your Evidence Vault")
 
 
 @app.get("/legal/sections")
@@ -193,8 +277,17 @@ def legal_sections():
 
 # ---------- Discreet SOS + Responder Network ----------
 
-DEMO_USER = "demo-user"  # no accounts yet; real build: the signed-in user
 _tasks: set = set()
+
+
+def _me() -> str:
+    return context.current() or sos.LEGACY_USER
+
+
+def _own_sos(sos_id: str) -> None:
+    s = _sos_call(sos.get_sos, sos_id)
+    if s["user"] != _me():
+        raise HTTPException(404, "SOS not found")
 
 
 def _background(coro) -> None:
@@ -251,17 +344,41 @@ def sos_key():
 
 @app.get("/sos/setup")
 async def sos_setup():
-    """What the SOS setup screen needs: her name, contacts, and which alert channels work."""
+    """What the SOS setup screen needs: her name, contacts, and which alert channels work.
+    Without an account (the responder page) only the bot name is shared."""
+    if not context.current():
+        return {"telegram": {"on": notify.telegram_on(), "bot": await notify.bot_username()}, "radius_m": sos.RADIUS_M}
     return {
         "name": people.her_name(),
         "contacts": people.list_kind("contact"),
-        "telegram": {"on": notify.telegram_on(), "bot": await notify.bot_username()},
+        "telegram": {"on": notify.telegram_on(), "bot": await notify.bot_username(),
+                     "problem": notify.problems["telegram"]},
         "email_on": notify.email_on(),
+        "email_problem": notify.problems["email"],
         "radius_m": sos.RADIUS_M,
     }
 
 
-@app.put("/sos/profile")
+@app.get("/sos/invite", dependencies=signed_in)
+async def sos_invite():
+    """The shared Telegram link: anyone who opens it and taps Start becomes a trusted contact."""
+    return {"link": await notify.invite_link()}
+
+
+@app.post("/sos/invite/reset", dependencies=signed_in)
+async def sos_invite_reset():
+    """New invite link; the old one stops adding people (contacts already added stay)."""
+    people.invite_code(reset=True)
+    return {"link": await notify.invite_link()}
+
+
+@app.post("/sos/test-channels", dependencies=signed_in)
+async def sos_test_channels():
+    """Sends a test over Telegram (to connected contacts) and email (to the Gmail account itself)."""
+    return await notify.test_channels()
+
+
+@app.put("/sos/profile", dependencies=signed_in)
 def sos_profile(body: ProfileIn):
     return {"name": people.set_her_name(body.name)}
 
@@ -269,19 +386,19 @@ def sos_profile(body: ProfileIn):
 _EVENT = {"started": "sos_started", "first_fix": "location_found", "repeated": "sos_repeated"}
 
 
-@app.post("/sos")
+@app.post("/sos", dependencies=signed_in)
 async def sos_trigger(body: SosIn, request: Request):
     loc = _decrypt(body.ciphertext) if body.ciphertext else None
     source = body.location_source if loc else "none"
-    result = _sos_call(sos.trigger, DEMO_USER, loc, body.trigger, source, _public_base(request))
+    result = _sos_call(sos.trigger, _me(), loc, body.trigger, source, _public_base(request))
     _background(getattr(notify, _EVENT[result.pop("event")])(result["sos_id"]))
     return result
 
 
-@app.post("/sos/safe")
+@app.post("/sos/safe", dependencies=signed_in)
 async def sos_safe():
     """'I'm safe' from any screen: ends her running SOS, if any, and tells contacts and responders."""
-    active = sos.active_for(DEMO_USER)
+    active = sos.active_for(_me())
     if not active:
         return {"ended": False}
     sos.cancel(active["sos_id"])
@@ -289,27 +406,30 @@ async def sos_safe():
     return {"ended": True, "sos_id": active["sos_id"]}
 
 
-@app.get("/sos/active")
+@app.get("/sos/active", dependencies=signed_in)
 def sos_active():
     """Her running SOS, if any (declared before /sos/{sos_id} so it isn't taken as an id)."""
-    return {"active": sos.active_for(DEMO_USER)}
+    return {"active": sos.active_for(_me())}
 
 
-@app.get("/sos/{sos_id}")
+@app.get("/sos/{sos_id}", dependencies=signed_in)
 def sos_status(sos_id: str):
+    _own_sos(sos_id)
     return _sos_call(sos.summary, sos_id)
 
 
-@app.post("/sos/{sos_id}/location")
+@app.post("/sos/{sos_id}/location", dependencies=signed_in)
 async def sos_location(sos_id: str, body: LocationIn):
     """Live GPS from her phone while the SOS is active."""
+    _own_sos(sos_id)
     result = _sos_call(sos.update_location, sos_id, _decrypt(body.ciphertext))
     _background(notify.location_found(sos_id) if result["first_fix"] else notify.location_updated(sos_id))
     return result
 
 
-@app.post("/sos/{sos_id}/cancel")
+@app.post("/sos/{sos_id}/cancel", dependencies=signed_in)
 async def sos_cancel(sos_id: str):
+    _own_sos(sos_id)
     result = _sos_call(sos.cancel, sos_id)
     _background(notify.sos_ended(sos_id))
     return result
@@ -328,61 +448,75 @@ async def responder_respond(sos_id: str, body: RespondIn):
     return result
 
 
-@app.post("/reset")
+@app.post("/reset", dependencies=signed_in)
 async def reset_everything():
     """One button before a demo: ends any running SOS (pins stop), then clears SOS history and the Vault.
     Trusted contacts, responders and her name stay, so the demo is ready to run again."""
-    active = sos.active_for(DEMO_USER)
+    active = sos.active_for(_me())
     if active:
         sos.cancel(active["sos_id"])
         await notify.sos_ended(active["sos_id"])  # before the history goes, so live pins are stopped
-    sos.reset()
+    sos.reset(_me())
     store.clear()
     evidence_index.clear()
     return {"ok": True, "ended_sos": bool(active)}
 
 
-@app.delete("/sos/history")
+@app.delete("/sos/history", dependencies=signed_in)
 def sos_clear_history():
-    _sos_call(sos.clear_history, DEMO_USER)
+    _sos_call(sos.clear_history, _me())
     return {"ok": True}
 
 
-@app.post("/sos/demo/reset")
+@app.post("/sos/demo/reset", dependencies=signed_in)
 def sos_demo_reset():
     if not config.DEMO_MODE:
         raise HTTPException(403, "demo mode is off")
-    sos.reset()
+    sos.reset(_me())
     return {"ok": True}
 
 
 # ---------- people: her trusted contacts and registered responders ----------
 
+def _person(pid: str) -> dict:
+    """A contact only for the account it belongs to; responders manage themselves (responder page)."""
+    p = _sos_call(people.get, pid)
+    if p["kind"] == "contact" and (not context.current() or not people.owns(p)):
+        raise HTTPException(404, "person not found")
+    return p
+
+
 @app.get("/people")
 def people_list(kind: str = "contact"):
+    if kind == "contact":
+        require_user()
     return {"people": people.list_kind(kind)}
 
 
 @app.post("/people")
 async def people_create(body: PersonIn):
+    if body.kind == "contact":
+        require_user()
     p = _sos_call(people.create, body.kind, body.name, body.phone, body.email, body.lat, body.lng)
     return {**p, "telegram_link": await notify.link_for(p)}
 
 
 @app.patch("/people/{pid}")
 def people_update(pid: str, body: PersonPatch):
+    _person(pid)
     return _sos_call(people.update, pid, **body.model_dump())
 
 
 @app.delete("/people/{pid}")
 def people_delete(pid: str):
+    _person(pid)
     _sos_call(people.delete, pid)
     return {"ok": True}
 
 
 @app.get("/people/{pid}/telegram")
 async def people_telegram(pid: str):
-    p = _sos_call(people.get, pid)
+    p = _person(pid)
     return {"link": await notify.link_for(p), "linked": p["telegram_chat_id"] is not None}
 
 

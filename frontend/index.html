@@ -30,6 +30,7 @@
       <a class="nav-link" href="/responder.html" target="_blank" rel="noopener">Responders ↗</a>
     </nav>
     <button class="quick-exit" id="quick-exit" type="button" aria-label="Quick exit to a neutral screen">Quick exit</button>
+    <button class="logout-btn" id="logout-btn" type="button" title="Log out">Log out</button>
     <span class="nav-status" id="nav-status">Prototype</span>
   </header>
 
@@ -287,20 +288,44 @@
             </ol>
             <button id="ring-btn" type="button" class="btn btn--primary btn--block">📞 Ring the fake call</button>
             <p class="note">Real app: power-button shortcut.</p>
-            <details class="details-card" id="sos-setup">
-              <summary><strong>Setup</strong> <span class="muted small" id="channels-status"></span></summary>
-              <div class="details-grid">
-                <label class="wide">Your name in alerts<input id="her-name" maxlength="60" placeholder="e.g. Priya" autocomplete="off" /></label>
-                <label class="wide">Caller name shown<input id="caller-input" maxlength="20" /></label>
-                <p class="note wide" id="gps-status">Location: this phone's GPS, read only when SOS fires, then live.</p>
-              </div>
-              <p class="section-title" style="margin-top:12px">Trusted contacts</p>
-              <ul class="contact-setup" id="contact-setup"></ul>
-              <form class="add-contact" id="add-contact">
-                <input name="name" placeholder="Name" required maxlength="60" autocomplete="off" />
-                <input name="email" type="email" placeholder="Email (backup)" maxlength="120" autocomplete="off" />
-                <button class="btn" type="submit">Add</button>
-              </form>
+            <details class="details-card setup" id="sos-setup">
+              <summary class="setup__summary">
+                <span class="setup__title"><strong>Setup</strong><span class="setup__sub">Who gets your SOS, and how</span></span>
+                <span class="setup__chips" id="channels-status"></span>
+                <span class="setup__chev" aria-hidden="true">›</span>
+              </summary>
+
+              <section class="setup__section">
+                <p class="setup__label"><span class="setup__num">1</span>You</p>
+                <div class="setup__grid">
+                  <label>Your name in alerts<input id="her-name" maxlength="60" placeholder="e.g. Priya" autocomplete="off" /></label>
+                  <label>Fake caller name<input id="caller-input" maxlength="20" placeholder="Mom" /></label>
+                </div>
+                <p class="setup__hint" id="gps-status">Location: this phone's GPS, read only when SOS fires, then live.</p>
+              </section>
+
+              <section class="setup__section">
+                <p class="setup__label"><span class="setup__num">2</span>Trusted contacts <span class="setup__count" id="contact-count"></span></p>
+                <ul class="contact-setup" id="contact-setup"></ul>
+                <form class="add-contact" id="add-contact">
+                  <input name="name" placeholder="Name" required maxlength="60" autocomplete="off" />
+                  <input name="email" type="email" placeholder="Gmail / email for SOS alerts" maxlength="120" autocomplete="off" />
+                  <button class="btn" type="submit">Add</button>
+                </form>
+                <button type="button" class="setup__invite" id="invite-btn" hidden>
+                  <span class="setup__invite-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M21.4 4.2 2.9 11.3c-1.3.5-1.3 1.2-.2 1.6l4.7 1.5 1.8 5.6c.2.6.1.9.8.9.5 0 .7-.2 1-.5l2.3-2.2 4.7 3.5c.9.5 1.5.2 1.7-.8l3.1-14.6c.3-1.3-.5-1.9-1.4-1.5ZM8.6 14.2l9.2-5.8c.4-.3.8-.1.5.2l-7.6 6.9-.3 3.2-1.8-4.5Z"/></svg>
+                  </span>
+                  <span><strong>Invite with one Telegram link</strong><small>One QR code. Everyone who taps Start is added.</small></span>
+                  <span class="setup__chev" aria-hidden="true">›</span>
+                </button>
+              </section>
+
+              <section class="setup__section">
+                <p class="setup__label"><span class="setup__num">3</span>Check it works</p>
+                <p class="setup__warn" id="channel-problem" hidden></p>
+                <button type="button" class="btn btn--block" id="test-channels" hidden>Send a test alert</button>
+              </section>
             </details>
           </div>
         </div>
@@ -378,6 +403,7 @@
   </section>
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
+  <script src="dialog.js"></script>
   <script src="conversations.js"></script>
   <script src="app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>

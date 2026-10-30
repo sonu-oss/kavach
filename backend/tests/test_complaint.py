@@ -120,8 +120,10 @@ def test_llm_sees_masked_text_and_only_cites_reranked_sections(monkeypatch):
     assert "rahul.k07 at okaxis" in portal["description"]
     assert {"type": "UPI ID", "value": "rahul.k07@okaxis"} in portal["suspect_identifiers"]
     assert any(i["type"] == "Mobile number" for i in portal["suspect_identifiers"])
-    assert [e["id"] for e in result["complaint"]["evidence"]] == ["E2", "E3"]  # flagged messages, sealed hashes
-    assert result["complaint"]["evidence"][0]["description"].startswith("Message from rahul_k_07")
+    evidence = result["complaint"]["evidence"]
+    assert [e["id"] for e in evidence] == ["E1", "E2", "E3"]  # every sealed message, in order, no gaps
+    assert [e["flagged"] for e in evidence] == [False, True, True]
+    assert evidence[1]["description"].startswith("Message from rahul_k_07 at 21:23")
     assert result["pipeline"]["source"] == "llm"
 
 
@@ -136,6 +138,27 @@ def test_falls_back_to_template_when_llm_unavailable(monkeypatch):
     assert result["pipeline"]["source"] == "fallback"
     assert result["sections"] and all(s["low_confidence"] for s in result["sections"])
     assert result["complaint"]["incident_summary"]
+    timeline = result["complaint"]["timeline"]
+    assert [t["when"] for t in timeline] == ["21:20", "21:23", "21:25"]  # whole exchange, in order
+    assert timeline[0]["what"] == "I replied: “please stop messaging”"
+    assert timeline[1]["what"].startswith("rahul_k_07 wrote: “10k bhej de") and timeline[1]["what"].endswith("(threatening)")
+
+
+def test_status_line_read_as_name_is_not_called_the_accused(monkeypatch):
+    out = store.save_capture(EvidenceIn(
+        platform="Instagram", conversation="Active 2m ago",
+        messages=[{"ref": "1", "sender": "active_2m_ago", "text": "I know where you live", "flagged": True}],
+        analysis={"category": "stalking", "risk_score": 80, "severity": "high", "reason": "x"},
+    ))
+
+    async def down(*a, **k):
+        raise LLMError("no key")
+
+    monkeypatch.setattr(drafting, "groq_json_with_fallback", down)
+    c = asyncio.run(drafting.build_complaint(out["capture_id"]))["complaint"]
+    assert c["accused"] == ["an unknown account"]
+    assert "Active 2m ago" not in c["incident_summary"]
+    assert c["evidence"][0]["description"] == "Message from an unknown account: “I know where you live”"
 
 
 def test_unknown_capture_is_rejected():

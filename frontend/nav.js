@@ -128,8 +128,8 @@
   // The server ends any running SOS and clears the Vault and SOS history; reloading
   // clears the scanned chats and any draft, which only live on this page.
   document.querySelector("#reset-all").addEventListener("click", async (e) => {
-    if (!confirm("Reset everything? This ends any running SOS and deletes sealed evidence. Contacts and responders stay.")) return;
-    const btn = e.currentTarget;
+    const btn = e.currentTarget; // read before the await: currentTarget is null afterwards
+    if (!(await kavachConfirm("Reset everything? This ends any running SOS and deletes sealed evidence. Contacts and responders stay.", { ok: "Reset", danger: true }))) return;
     btn.disabled = true;
     btn.textContent = "Resetting…";
     try {

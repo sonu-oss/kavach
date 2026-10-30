@@ -354,7 +354,7 @@
   });
 
   document.querySelector("#clear-vault").addEventListener("click", async () => {
-    if (!confirm("Delete all sealed evidence? This can't be undone. Export the PDF report first if you need it.")) return;
+    if (!(await kavachConfirm("Delete all sealed evidence? This can't be undone. Export the PDF report first if you need it.", { ok: "Delete all", danger: true }))) return;
     try {
       await api("/evidence", { method: "DELETE" });
       Object.values(window.kavach.results).forEach((r) => delete r.saved);

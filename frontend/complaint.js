@@ -115,8 +115,8 @@
   });
 
   // The draft only lives on this screen; deleting it leaves the sealed evidence alone.
-  document.querySelector("#delete-draft").addEventListener("click", () => {
-    if (!confirm("Delete this complaint draft?")) return;
+  document.querySelector("#delete-draft").addEventListener("click", async () => {
+    if (!(await kavachConfirm("Delete this complaint draft?", { ok: "Delete", danger: true }))) return;
     data = null;
     edited = false;
     els.letter.value = "";
@@ -210,7 +210,8 @@
     lines.push(c.incident_summary, "");
 
     if (c.timeline.length) {
-      lines.push("Timeline of events (times as shown in the chat):");
+      const timed = c.timeline.some((t) => t.when);
+      lines.push(`Timeline of events (${timed ? "times as shown in the chat" : "in the order shown in the chat"}):`);
       c.timeline.forEach((t, i) => {
         const ev = t.evidence_ids?.length ? ` (evidence ${t.evidence_ids.join(", ")})` : "";
         lines.push(`${i + 1}. ${t.when ? `${t.when}: ` : ""}${t.what}${ev}`);
@@ -228,12 +229,23 @@
     }
 
     lines.push("Evidence (sealed in the Kavach Evidence Vault with SHA-256 and a server timestamp):");
-    c.evidence.forEach((e) => {
-      lines.push(`- ${e.id}: ${e.description} [SHA-256 ${e.sha256.slice(0, 16)}…]${e.verified ? "" : " (FAILED VERIFICATION)"}`);
-    });
+    // Screenshots one by one; messages as one range (they are quoted in the timeline), so the list stays short.
+    const failed = (e) => (e.verified ? "" : " (FAILED VERIFICATION)");
+    c.evidence.filter((e) => e.kind === "screenshot").forEach((e) => lines.push(`- ${e.id}: ${e.description}${failed(e)}`));
+    const msgs = c.evidence.filter((e) => e.kind === "message");
+    if (msgs.length) {
+      const range = msgs.length > 1 ? `${msgs[0].id} to ${msgs[msgs.length - 1].id}` : msgs[0].id;
+      const flagged = msgs.filter((e) => e.flagged).map((e) => e.id);
+      const bad = msgs.filter((e) => !e.verified).map((e) => e.id);
+      lines.push(
+        `- ${range}: the ${msgs.length} chat message${msgs.length > 1 ? "s" : ""} from this conversation, in order` +
+          (flagged.length ? ` (threatening or abusive: ${flagged.join(", ")})` : "") +
+          (bad.length ? `. FAILED VERIFICATION: ${bad.join(", ")}` : "")
+      );
+    }
     lines.push(
-      `Evidence chain status: ${c.chain_ok ? "verified, unaltered" : "BROKEN, see attached report"}. Chain head: ${c.chain_head}.`,
-      "The full evidence report with complete hash values and a Section 63 BSA certificate is attached.",
+      `Evidence chain status: ${c.chain_ok ? "verified, unaltered" : "BROKEN, see attached report"}.`,
+      "Annex B lists every item with its time, sender and SHA-256 fingerprint. The full evidence report with complete hash values and a Section 63 BSA certificate is attached.",
       ""
     );
 
@@ -370,12 +382,7 @@
   });
 
   async function copy(text, msg) {
-    try {
-      await navigator.clipboard.writeText(text);
-      window.kavach.toast(msg);
-    } catch {
-      window.kavach.toast("Copy failed: select the text and copy it manually");
-    }
+    window.kavach.toast((await kavachCopy(text)) ? msg : "Copy failed: select the text and copy it manually");
   }
 
   window.kavachComplaint = { open, close };

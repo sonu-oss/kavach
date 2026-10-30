@@ -9,6 +9,9 @@ Every record (one chat message, or one screenshot) is sealed with
 so changing any stored field, reordering records, or swapping a screenshot file
 makes verification fail from that record onwards. The hash is recomputed from
 the stored columns, so an edit made straight in the database is caught too.
+
+Each account has its own chain (records are linked to the previous record of the same
+owner), so one person's Vault never shows, or depends on, anyone else's.
 """
 
 import base64
@@ -24,6 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from app import config
+from app.auth import context
 from app.vault.schemas import EvidenceIn
 
 GENESIS = "0" * 64
@@ -48,7 +52,8 @@ CREATE TABLE IF NOT EXISTS evidence (
     incident_date      TEXT,                   -- YYYY-MM-DD, stated by the complainant
     server_timestamp   TEXT NOT NULL,
     prev_hash          TEXT NOT NULL,
-    hash               TEXT NOT NULL
+    hash               TEXT NOT NULL,
+    owner              TEXT                    -- account id; NULL for records sealed before accounts
 );
 CREATE INDEX IF NOT EXISTS evidence_capture ON evidence(capture_id);
 """
@@ -111,6 +116,8 @@ def connect():
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(evidence)")}
         if "incident_date" not in cols:  # vaults created before this column existed
             conn.execute("ALTER TABLE evidence ADD COLUMN incident_date TEXT")
+        if "owner" not in cols:  # vaults created before accounts (not hashed: old seals stay valid)
+            conn.execute("ALTER TABLE evidence ADD COLUMN owner TEXT")
         yield conn
     finally:
         conn.close()
@@ -154,6 +161,7 @@ def save_capture(item: EvidenceIn) -> dict:
         (shots_dir() / f"{digest}.{ext}").write_bytes(raw)
         shots.append((s.kind, digest))
 
+    owner = context.current()
     rows = [
         {**base, "kind": "screenshot", "sender": None, "message_text": None, "message_time": None,
          "message_ref": None, "flagged": 0, "screenshot_kind": kind, "screenshot_sha256": digest}
@@ -167,12 +175,14 @@ def save_capture(item: EvidenceIn) -> dict:
     with _lock, connect() as conn:
         conn.execute("BEGIN IMMEDIATE")
         try:
-            last = conn.execute("SELECT id, hash FROM evidence ORDER BY id DESC LIMIT 1").fetchone()
-            next_id = (last["id"] + 1) if last else 1
+            # Ids are global; the chain links to this account's own previous record.
+            top = conn.execute("SELECT MAX(id) AS m FROM evidence").fetchone()["m"]
+            next_id = (top or 0) + 1
+            last = conn.execute("SELECT hash FROM evidence WHERE owner IS ? ORDER BY id DESC LIMIT 1", (owner,)).fetchone()
             prev = last["hash"] if last else GENESIS
             ts = _now()  # one server timestamp for the whole capture
             for row in rows:
-                row.update(id=next_id, server_timestamp=ts, prev_hash=prev)
+                row.update(id=next_id, server_timestamp=ts, prev_hash=prev, owner=owner)
                 row["hash"] = record_hash(row)
                 cols = ", ".join(row)
                 conn.execute(f"INSERT INTO evidence ({cols}) VALUES ({', '.join('?' * len(row))})", list(row.values()))
@@ -187,8 +197,21 @@ def save_capture(item: EvidenceIn) -> dict:
 
 
 def all_rows() -> list[dict]:
+    """The signed-in account's records, in chain order."""
     with connect() as conn:
-        return [dict(r) for r in conn.execute("SELECT * FROM evidence ORDER BY id")]
+        return [dict(r) for r in conn.execute("SELECT * FROM evidence WHERE owner IS ? ORDER BY id", (context.current(),))]
+
+
+def owns_screenshot(digest: str) -> bool:
+    with connect() as conn:
+        return conn.execute("SELECT 1 FROM evidence WHERE screenshot_sha256=? AND owner IS ? LIMIT 1",
+                            (digest, context.current())).fetchone() is not None
+
+
+def claim_unowned(owner: str) -> None:
+    """Hands records sealed before accounts existed to the first account."""
+    with _lock, connect() as conn:
+        conn.execute("UPDATE evidence SET owner=? WHERE owner IS NULL", (owner,))
 
 
 def screenshot_path(digest: str) -> Path | None:
@@ -243,17 +266,18 @@ def verify(rows: list[dict] | None = None) -> dict:
 # ---------- demo controls (KAVACH_DEMO=1 only) ----------
 
 def demo_tamper(record_id: int | None, rehash: bool) -> dict:
+    owner = context.current()
     with _lock, connect() as conn:
         if record_id is None:
             # Never the newest record: a re-sealed last record has nothing after it to expose it.
             msgs = conn.execute(
-                "SELECT id FROM evidence WHERE kind='message' AND id < (SELECT MAX(id) FROM evidence)"
-                " ORDER BY flagged DESC, id"
+                "SELECT id FROM evidence WHERE kind='message' AND owner IS ?"
+                " AND id < (SELECT MAX(id) FROM evidence WHERE owner IS ?) ORDER BY flagged DESC, id", (owner, owner)
             ).fetchall()
             if not msgs:
                 raise EvidenceError("vault has no messages to tamper with")
             record_id = msgs[0]["id"]
-        row = conn.execute("SELECT * FROM evidence WHERE id=?", (record_id,)).fetchone()
+        row = conn.execute("SELECT * FROM evidence WHERE id=? AND owner IS ?", (record_id, owner)).fetchone()
         if row is None or row["kind"] != "message":
             raise EvidenceError("record not found or not a message")
         row = dict(row)
@@ -266,11 +290,13 @@ def demo_tamper(record_id: int | None, rehash: bool) -> dict:
 
 
 def clear() -> None:
-    """Deletes every record and screenshot. Her choice, e.g. after the case is closed."""
+    """Deletes this account's records and its screenshots. Her choice, e.g. after the case is closed."""
     with _lock, connect() as conn:
-        conn.execute("DELETE FROM evidence")
+        conn.execute("DELETE FROM evidence WHERE owner IS ?", (context.current(),))
+        still_used = {r[0] for r in conn.execute("SELECT screenshot_sha256 FROM evidence WHERE screenshot_sha256 IS NOT NULL")}
     for f in shots_dir().glob("*"):
-        f.unlink()
+        if f.stem not in still_used:  # the same image sealed by another account stays
+            f.unlink()
 
 
 demo_reset = clear

@@ -10,12 +10,19 @@ import logging
 import re
 
 from app import vectors
+from app.auth import context
 from app.shield.pii import Masker
 from app.vault import store
 
 log = logging.getLogger("kavach.vault")
 
 COLLECTION = "evidence"
+
+
+def _collection_name() -> str:
+    """One collection per account, so search (and its clean-up of stale vectors) never crosses accounts."""
+    user = context.current()
+    return f"{COLLECTION}_{user}" if user else COLLECTION
 
 # The embedding model only knows English, so romanised Hindi / Kannada slang (the same glossary the
 # Smart Shield prompt uses) gets its English meaning appended before embedding.
@@ -64,7 +71,7 @@ def _add(rows: list[dict]) -> int:
         return 0
     masker = Masker()  # one per batch, so a number repeated across messages keeps one token
     docs = [_with_gloss(masker.mask(r["message_text"])) for r in rows]
-    vectors.collection(COLLECTION).upsert(
+    vectors.collection(_collection_name()).upsert(
         ids=[r["hash"] for r in rows],  # the seal hash: unique, and row ids are reused after a clear
         documents=docs,
         embeddings=vectors.embed_docs(docs),
@@ -93,7 +100,7 @@ def index_capture(capture_id: str) -> int:
 
 def _sync(rows: list[dict]) -> None:
     """Index any sealed message the vector DB is missing (a vault from before the index, a failed add)."""
-    col = vectors.collection(COLLECTION)
+    col = vectors.collection(_collection_name())
     have = set(col.get(include=[])["ids"])
     sealed = {r["hash"] for r in _messages(rows)}
     stale = have - sealed
@@ -115,7 +122,7 @@ def search(query: str, k: int = 5, conversation: str | None = None, flagged_only
     where = [{"conversation": conversation}] if conversation else []
     if flagged_only:
         where.append({"flagged": True})
-    res = vectors.collection(COLLECTION).query(
+    res = vectors.collection(_collection_name()).query(
         query_embeddings=[vectors.embed_query(query)],
         n_results=min(k, len(_messages(rows))),
         where=(where[0] if len(where) == 1 else {"$and": where}) if where else None,
@@ -143,4 +150,4 @@ def search(query: str, k: int = 5, conversation: str | None = None, flagged_only
 
 
 def clear() -> None:
-    vectors.drop(COLLECTION)
+    vectors.drop(_collection_name())

@@ -196,11 +196,13 @@
   // ---------- turning OCR lines into chat messages ----------
   // OCR often misreads digits in small timestamp text ("1s:52", "os:10", "19.05"),
   // and turns read-receipt ticks into "vv" or "«/".
-  const TIME_AT_END = /\s*([0-9oOsSlI]{1,2}[:.\-][0-9oOsSlI]{2})\s*(?:[ap]\.?\s?m\.?)?\s*(?:[✓✔vV/\\»«|]{1,3})?\s*$/;
+  const TIME_AT_END = /\s*([0-9oOsSlI]{1,2}[:.\-][0-9oOsSlI]{2})\s*([ap]\.?\s?m\.?)?\s*(?:[✓✔vV/\\»«|]{1,3})?\s*$/i;
   const STATUS_BAR = /^[0-9oOsSlI]{1,2}[:.][0-9oO]{2}\b/;
   const fixDigits = (t) => t.replace(/[oO]/g, "0").replace(/[sS]/g, "8").replace(/[lI]/g, "1").replace(/[.\-]/, ":");
   const DATE_LINE = /^(today|yesterday|\d{1,2}\s+[a-z]{3,9}(\s+\d{4})?|[a-z]{3,9}\s+\d{1,2},?(\s+\d{4})?|(mon|tues|wednes|thurs|fri|satur|sun)day)$/i;
   const UI_LINE = /^(type a message|message|send a message|message\.\.\.|online|typing\.\.\.|last seen.*|seen|delivered|read)$/i;
+  // Header status lines that must never become the contact's name.
+  const STATUS_LINE = /^(online|offline|typing\W*|last seen.*|active( now| today| yesterday| \d+\s*[smhdw]\w* ago)?|tap here.*|\d+ (followers|members).*)$/i;
   const JUNK = /^[\W_\d]{0,3}$/;
 
   function parseChat(rawLines, W, H) {
@@ -220,13 +222,19 @@
 
     // Full phone screenshots: the top strip is the status bar + contact header
     // (use it to guess the name), the bottom strip is the message box.
+    // Header lines skip the confidence filter: the avatar circle next to the name drags
+    // Tesseract's confidence down even when the name itself reads fine.
     let name = "";
-    const body = lines.filter((l) => {
-      if (isFullPhone && l.y1 < H * 0.11) {
-        const inStatusBar = l.y1 < H * 0.045 || STATUS_BAR.test(l.text);
-        if (!name && !inStatusBar && /[a-z]{2,}/i.test(l.text)) name = guessName(l.text);
-        return false;
+    if (isFullPhone) {
+      for (const l of rawLines.slice().sort((a, b) => a.bbox.y0 - b.bbox.y0)) {
+        const text = l.text.replace(/\s+/g, " ").trim();
+        if (name || l.bbox.y1 >= H * 0.11 || l.bbox.y1 < H * 0.045 || STATUS_BAR.test(text)) continue;
+        const guess = guessName(text);
+        if (/[a-z]{2,}/i.test(guess) && !STATUS_LINE.test(guess)) name = guess;
       }
+    }
+    const body = lines.filter((l) => {
+      if (isFullPhone && l.y1 < H * 0.11) return false;
       if (isFullPhone && l.y0 > H * 0.92) return false;
       return true;
     });
@@ -237,15 +245,17 @@
     const out = [];
     let cur = null;
     let prev = null;
+    let dividerTime = ""; // "Today 9:12 PM" style dividers (Instagram) time the bubbles under them
     for (const l of body) {
       let text = l.text;
       let time = "";
       const t = text.match(TIME_AT_END);
       if (t) {
-        time = fixDigits(t[1]);
+        time = fixDigits(t[1]) + (t[2] ? ` ${t[2].replace(/\W/g, "").toUpperCase()}` : "");
         text = text.slice(0, t.index).trim();
       }
       if (DATE_LINE.test(text) || UI_LINE.test(text)) {
+        if (DATE_LINE.test(text)) dividerTime = time;
         prev = null;
         continue;
       }
@@ -264,7 +274,9 @@
           prev = l;
           continue;
         }
-        cur = { sender: side, text: "", time: "", confs: [], closed: false };
+        // Only the first bubble under the divider was sent at that time; later ones came after.
+        cur = { sender: side, text: "", time: "", dividerTime, confs: [], closed: false };
+        dividerTime = "";
         out.push(cur);
       }
       if (text) cur.text = cur.text ? `${cur.text} ${text}` : text;
@@ -283,7 +295,7 @@
         .map((m) => ({
           sender: m.sender,
           text: m.text,
-          time: m.time,
+          time: m.time || m.dividerTime,
           lowConf: m.confs.reduce((a, b) => a + b, 0) / m.confs.length < 70,
         })),
     };
@@ -293,6 +305,7 @@
     // Strip back arrows, avatars read as letters, and status words.
     return text
       .replace(/^[<←‹«(\s\W]+/, "")
+      .replace(/^(?:\S{1,2}\s+)+(?=\S{3,})/, "") // avatar initial read as "a" / "(r" before the name
       .replace(/\b(online|typing\.*|last seen.*)$/i, "")
       .trim()
       .slice(0, 60);

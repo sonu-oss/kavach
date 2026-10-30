@@ -30,6 +30,10 @@
     callerInput: $("#caller-input"),
     herName: $("#her-name"),
     channels: $("#channels-status"),
+    channelProblem: $("#channel-problem"),
+    invite: $("#invite-btn"),
+    contactCount: $("#contact-count"),
+    testChannels: $("#test-channels"),
     contactList: $("#contact-setup"),
     addContact: $("#add-contact"),
     shield: $("#shield-body"),
@@ -93,32 +97,59 @@
   }
 
   // ---------- setup: her name + trusted contacts (saved on the server) ----------
+  els.testChannels.addEventListener("click", async () => {
+    els.testChannels.disabled = true;
+    els.testChannels.textContent = "Sending…";
+    try {
+      const r = await api("/sos/test-channels", { method: "POST" });
+      await kavachAlert(`Telegram: ${r.telegram}\n\nEmail: ${r.email}`);
+    } catch (err) {
+      window.kavach.toast(`Couldn't reach Kavach: ${err.message}`);
+    }
+    els.testChannels.disabled = false;
+    els.testChannels.textContent = "Send a test alert";
+    loadSetup();
+  });
+
   async function loadSetup() {
     try {
       setup = await api("/sos/setup");
     } catch {
-      els.channels.textContent = "Kavach is offline";
+      els.channels.innerHTML = `<span class="chan chan--warn">Kavach offline</span>`;
       return;
     }
     if (document.activeElement !== els.herName) els.herName.value = setup.name === "Someone you know" ? "" : setup.name;
-    els.channels.textContent = `Telegram ${setup.telegram.on ? "on" : "not set up"} · Email ${setup.email_on ? "on" : "not set up"}`;
+    const chip = (label, on, problem, title) =>
+      `<span class="chan ${!on ? "" : problem ? "chan--warn" : "chan--on"}" title="${esc(title)}">${label}${!on ? " off" : problem ? " !" : ""}</span>`;
+    els.channels.innerHTML =
+      chip("Telegram", setup.telegram.on, setup.telegram.problem, setup.telegram.bot ? `@${setup.telegram.bot}` : "Not set up") +
+      chip("Email", setup.email_on, setup.email_problem, setup.email_on ? "Gmail connected" : "Not set up");
+    els.channelProblem.textContent = [setup.telegram.on && setup.telegram.problem, setup.email_on && setup.email_problem]
+      .filter(Boolean)
+      .join(" ");
+    els.channelProblem.hidden = !els.channelProblem.textContent;
+    els.testChannels.hidden = !setup.telegram.on && !setup.email_on;
+    els.invite.hidden = !setup.telegram.bot;
     renderContacts();
   }
 
   function renderContacts() {
+    const linked = setup.contacts.filter((c) => c.telegram_linked).length;
+    els.contactCount.textContent = setup.contacts.length ? `${setup.contacts.length} added · ${linked} on Telegram` : "";
     if (!setup.contacts.length) {
-      els.contactList.innerHTML = `<li class="note">Add at least one person who should get your SOS.</li>`;
+      els.contactList.innerHTML = `<li class="contact-empty">No one yet. Add at least one person who should get your SOS.</li>`;
       return;
     }
     els.contactList.innerHTML = setup.contacts
       .map((c) => {
         const link = setup.telegram.bot ? `https://t.me/${setup.telegram.bot}?start=${c.link_code}` : null;
         const tg = c.telegram_linked
-          ? `<span class="ok-tag">Telegram ✓</span>`
+          ? `<span class="ok-tag">✓ Telegram</span>`
           : link
             ? `<button type="button" class="link-btn" data-qr="${esc(link)}" data-who="${esc(c.name)}">Connect Telegram</button>`
             : `<span class="muted small">Telegram not set up</span>`;
         return `<li class="contact-row">
+          <span class="avatar" aria-hidden="true">${esc((c.name.match(/[\p{L}\p{N}]/u)?.[0] || "?").toUpperCase())}</span>
           <div><strong>${esc(c.name)}</strong><small>${esc(c.email || "no email")}</small></div>
           ${tg}
           <button type="button" class="row-del" data-del="${esc(c.id)}" title="Remove">×</button>
@@ -142,7 +173,11 @@
     try {
       await api("/people", {
         method: "POST",
-        body: JSON.stringify({ kind: "contact", name: f.get("name"), email: f.get("email") || "" }),
+        body: JSON.stringify({
+          kind: "contact",
+          name: f.get("name"),
+          email: (f.get("email") || "").trim(),
+        }),
       });
       els.addContact.reset();
       await loadSetup();
@@ -162,6 +197,18 @@
   });
 
   // Each contact scans this (or gets the link) and taps Start once.
+  // One shared link: everyone who opens it and taps Start becomes a trusted contact.
+  els.invite.addEventListener("click", async () => {
+    try {
+      const { link } = await api("/sos/invite");
+      if (!link) return window.kavach.toast("Telegram isn't set up");
+      showQr(link, null);
+    } catch (err) {
+      window.kavach.toast(`Couldn't reach Kavach: ${err.message}`);
+    }
+  });
+
+  // who = a contact's name for their personal link, or null for the shared invite link.
   function showQr(link, who) {
     let svg = "";
     try {
@@ -174,7 +221,20 @@
     }
     const box = document.createElement("div");
     box.className = "qr-modal";
-    box.innerHTML = `<div class="qr-card">
+    const invite = who === null;
+    box.innerHTML = invite
+      ? `<div class="qr-card">
+      <p class="section-title">Invite trusted contacts</p>
+      <div class="qr">${svg}</div>
+      <p class="note">Anyone who scans this (or opens the link) and taps <strong>Start</strong> is added as a trusted contact and gets your SOS with your exact location. Only share it with people you trust.</p>
+      <p class="note" data-count></p>
+      <div class="qr-actions">
+        <button type="button" class="btn" data-copy>Copy link</button>
+        <button type="button" class="btn" data-reset>New link</button>
+        <button type="button" class="btn btn--primary" data-close>Done</button>
+      </div>
+    </div>`
+      : `<div class="qr-card">
       <p class="section-title">Connect ${esc(who)} on Telegram</p>
       <div class="qr">${svg}</div>
       <p class="note">${esc(who)} scans this with their phone camera, or open the link on their phone, and taps <strong>Start</strong>.</p>
@@ -183,16 +243,29 @@
         <button type="button" class="btn btn--primary" data-close>Done</button>
       </div>
     </div>`;
+    // While the invite is on screen, show people joining live.
+    const count = box.querySelector("[data-count]");
+    const tick = async () => {
+      await loadSetup();
+      const n = setup.contacts.filter((c) => c.telegram_linked).length;
+      if (count) count.textContent = `${n} contact${n === 1 ? "" : "s"} connected on Telegram`;
+    };
+    const timer = invite ? setInterval(tick, 3000) : null;
+    if (invite) tick();
     box.addEventListener("click", async (e) => {
+      if (e.target.closest("[data-reset]")) {
+        if (!(await kavachConfirm("Make a new link? The old link stops adding people. Contacts already added stay.", { ok: "New link" }))) return;
+        const { link: fresh } = await api("/sos/invite/reset", { method: "POST" });
+        clearInterval(timer);
+        box.remove();
+        return showQr(fresh, null);
+      }
       if (e.target.closest("[data-copy]")) {
-        try {
-          await navigator.clipboard.writeText(link);
-          window.kavach.toast("Link copied");
-        } catch {
-          window.prompt("Copy this link", link);
-        }
+        if (await kavachCopy(link)) window.kavach.toast("Link copied");
+        else kavachAlert(`Copy this link:\n${link}`);
       }
       if (e.target === box || e.target.closest("[data-close]")) {
+        clearInterval(timer);
         box.remove();
         loadSetup();
       }
@@ -601,7 +674,7 @@
   }
 
   async function resetDemo() {
-    if (!confirm("Clear past SOS alerts? Your contacts and settings stay.")) return;
+    if (!(await kavachConfirm("Clear past SOS alerts? Your contacts and settings stay.", { ok: "Clear", danger: true }))) return;
     try {
       await api("/sos/history", { method: "DELETE" });
     } catch (err) {

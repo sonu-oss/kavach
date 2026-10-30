@@ -22,6 +22,8 @@ log = logging.getLogger("kavach.sos")
 
 LIVE_PERIOD_S = service.TRACK_TTL_S  # Telegram keeps the live pin updatable for this long
 _bot_username: str | None = None
+# Last problem seen per channel, in words the setup screen can show ("" = working or untested).
+problems = {"telegram": "", "email": ""}
 
 
 def telegram_on() -> bool:
@@ -49,14 +51,30 @@ async def bot_username() -> str | None:
     if _bot_username is None and telegram_on():
         try:
             _bot_username = (await tg("getMe"))["username"]
+            problems["telegram"] = ""
         except Exception as exc:  # bad token, offline
+            problems["telegram"] = _telegram_problem(exc)
             log.warning("Telegram getMe failed: %s", exc)
     return _bot_username
+
+
+def _telegram_problem(exc: Exception) -> str:
+    text = str(exc)
+    if "Unauthorized" in text or "Not Found" in text:
+        return "Telegram rejected the bot token. Copy it again from @BotFather."
+    if "Conflict" in text:
+        return "Another copy of Kavach is using this bot token. Stop the other one (or make a second bot for testing)."
+    return f"Telegram is unreachable: {text}"
 
 
 async def link_for(person: dict) -> str | None:
     name = await bot_username()
     return f"https://t.me/{name}?start={person['link_code']}" if name else None
+
+
+async def invite_link() -> str | None:
+    name = await bot_username()
+    return f"https://t.me/{name}?start={people.INVITE_PREFIX}{people.invite_code()}" if name else None
 
 
 # ---------- email ----------
@@ -81,10 +99,55 @@ async def email(to: str | None, subject: str, body: str) -> str:
         return "no email"
     try:
         await asyncio.to_thread(_send_email, to, subject, body)
+        problems["email"] = ""
         return "sent"
     except Exception as exc:
+        problems["email"] = _email_problem(exc)
         log.warning("email to %s failed: %s", to, exc)
         return "failed"
+
+
+def _email_problem(exc: Exception) -> str:
+    if isinstance(exc, smtplib.SMTPAuthenticationError):
+        return ("Gmail rejected the login. SMTP_PASSWORD must be a 16-letter App Password "
+                "(Google Account → Security → App passwords), not your normal Gmail password.")
+    if isinstance(exc, (OSError, smtplib.SMTPConnectError)):
+        return f"Couldn't reach the mail server ({exc}). Some hosts block outgoing email."
+    return f"Email failed: {exc}"
+
+
+async def test_channels() -> dict:
+    """Setup screen's "Send a test": proves the bot token works, messages every linked contact,
+    and emails the Gmail account itself, so mistakes show up before a real SOS."""
+    out = {"telegram": "not set up", "email": "not set up"}
+    if telegram_on():
+        global _bot_username
+        _bot_username = None  # re-check the token, it may have just been changed
+        if await bot_username():
+            linked = people.linked_contacts()
+            sent = 0
+            for c in linked:
+                try:
+                    await tg("sendMessage", chat_id=c["telegram_chat_id"],
+                             text=f"✅ Test from Kavach: you'll get {people.her_name()}'s SOS alerts here.")
+                    sent += 1
+                except Exception as exc:
+                    log.warning("test message to %s failed: %s", c["name"], exc)
+            out["telegram"] = (f"working (@{_bot_username}); test sent to {sent} of {len(linked)} connected contact(s)"
+                               if linked else f"working (@{_bot_username}); no contact has connected yet")
+        else:
+            out["telegram"] = problems["telegram"]
+    if email_on():
+        # Every contact with an email gets the test, the same way a real SOS reaches them;
+        # with no contacts yet, the Gmail account emails itself.
+        to = [c["email"] for c in people.list_kind("contact") if c["email"]] or [config.SMTP_USER]
+        results = [await email(addr, "Kavach test alert",
+                               f"Test from Kavach: you'll get {people.her_name()}'s SOS alerts at this address.")
+                   for addr in to]
+        ok = [a for a, r in zip(to, results) if r == "sent"]
+        out["email"] = (f"working: test sent to {', '.join(ok)}" + (" (check Spam if you don't see it)" if ok else "")
+                        if len(ok) == len(to) else f"sent to {len(ok)} of {len(to)}. {problems['email']}")
+    return out
 
 
 # ---------- events ----------
@@ -105,7 +168,7 @@ def _directions(lat, lng) -> str:
 
 async def sos_started(sos_id: str) -> None:
     s = service.get_sos(sos_id)
-    name = people.her_name()
+    name = people.her_name(service.owner_of(s))
     track = f"{s['base_url']}/track.html?t={s['track_token']}"
     jobs = []
     for d in service.deliveries(sos_id):
@@ -169,7 +232,7 @@ async def _send_live_pin(s: dict, d: dict) -> None:
 async def location_found(sos_id: str) -> None:
     """Her phone got its first GPS fix after the SOS went out: pin for contacts, alerts for responders."""
     s = service.get_sos(sos_id)
-    name = people.her_name()
+    name = people.her_name(service.owner_of(s))
     jobs = []
     for d in service.deliveries(sos_id):
         if d["role"] == "contact" and d["telegram_chat_id"] and not d["live_message_id"] and telegram_on():
@@ -204,7 +267,7 @@ async def sos_repeated(sos_id: str) -> None:
     """She pressed SOS again while it was on: a fresh notification for everyone still involved."""
     await location_updated(sos_id)
     s = service.get_sos(sos_id)
-    name = people.her_name()
+    name = people.her_name(service.owner_of(s))
     track = f"{s['base_url']}/track.html?t={s['track_token']}"
     jobs = []
     for d in service.deliveries(sos_id):
@@ -263,7 +326,7 @@ async def responder_accepted(sos_id: str, person_id: str) -> None:
 async def sos_ended(sos_id: str) -> None:
     if not telegram_on():
         return
-    name = people.her_name()
+    name = people.her_name(service.owner_of(service.get_sos(sos_id)))
     for d in service.deliveries(sos_id):
         if not d["telegram_chat_id"] or (d["role"] == "responder" and d["telegram"] != "sent"):
             continue
@@ -283,6 +346,10 @@ async def poll_forever() -> None:
     if not telegram_on():
         return
     log.info("Telegram bot @%s listening", await bot_username())
+    try:
+        await tg("deleteWebhook")  # a webhook left over from another tool blocks getUpdates
+    except Exception as exc:
+        log.warning("Telegram deleteWebhook failed: %s", exc)
     offset = 0
     while True:
         try:
@@ -296,8 +363,9 @@ async def poll_forever() -> None:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            log.warning("Telegram polling error: %s", exc)
-            await asyncio.sleep(5)
+            problems["telegram"] = _telegram_problem(exc)
+            log.warning("Telegram polling error: %s", problems["telegram"])
+            await asyncio.sleep(30 if "Conflict" in str(exc) else 5)
 
 
 async def _handle(u: dict) -> None:
@@ -305,13 +373,24 @@ async def _handle(u: dict) -> None:
         msg = u["message"]
         text = (msg.get("text") or "").strip()
         chat_id = msg["chat"]["id"]
+        if text.startswith("/start") and text.split(maxsplit=1)[-1].startswith(people.INVITE_PREFIX):
+            frm = msg.get("from", {})
+            tg_name = " ".join(x for x in (frm.get("first_name"), frm.get("last_name")) if x) or frm.get("username", "")
+            person, added = people.join_by_invite(text.split(maxsplit=1)[1][len(people.INVITE_PREFIX):], chat_id, tg_name)
+            log.info("Telegram invite /start → %s", ("added " if added else "already ") + person["name"] if person else "bad code")
+            reply = ("This invite link is no longer valid. Ask for a new one." if not person else
+                     f"✅ Connected, {person['name']}. You're a trusted contact for {people.her_name(person['owner'])}. "
+                     f"If she sends an SOS, you'll get her live location here." if added else
+                     f"You're already connected as {person['name']}.")
+            await tg("sendMessage", chat_id=chat_id, text=reply)
+            return
         if text.startswith("/start"):
             parts = text.split(maxsplit=1)
             person = people.link_telegram(parts[1], chat_id) if len(parts) == 2 else None
             log.info("Telegram /start %s → %s", "with code" if len(parts) == 2 else "without code",
                      f"linked {person['kind']} {person['name']}" if person else "no match")
             if person:
-                role = (f"a trusted contact for {people.her_name()}. If she sends an SOS, you'll get her live location here."
+                role = (f"a trusted contact for {people.her_name(person['owner'])}. If she sends an SOS, you'll get her live location here."
                         if person["kind"] == "contact" else
                         "a Kavach responder. You'll get alerts for SOS nearby once you're verified.")
                 await tg("sendMessage", chat_id=chat_id, text=f"✅ Connected, {person['name']}. You're {role}")

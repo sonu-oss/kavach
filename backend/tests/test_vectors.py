@@ -9,6 +9,7 @@ from app import config, vectors
 from app.complaint import retrieval
 from app.vault import index, store
 from app.vault.schemas import EvidenceIn
+from conftest import signed_in
 
 DIM = 128
 
@@ -78,7 +79,7 @@ def test_search_finds_by_meaning_and_returns_the_sealed_text():
 def test_index_holds_masked_text_only():
     cid = seal(texts=["call me on 9845012345", "pay rahul.k07@okaxis"])
     index.index_capture(cid)
-    docs = " ".join(vectors.collection(index.COLLECTION).get()["documents"])
+    docs = " ".join(vectors.collection(index._collection_name()).get()["documents"])
     assert "9845012345" not in docs and "okaxis" not in docs
     assert "a phone number" in docs  # [PHONE_1] embedded as words
     assert index.search("phone number", k=1)[0]["text"] == "call me on 9845012345"  # real text back from the Vault
@@ -99,7 +100,7 @@ def test_search_catches_up_on_unindexed_captures_and_forgets_cleared_ones():
     seal(texts=["new chat about coffee"])
     hits = index.search("house")  # the new record reuses row id 1
     assert [h["text"] for h in hits] == ["new chat about coffee"] and hits[0]["similarity"] < 0.1
-    assert vectors.collection(index.COLLECTION).count() == 1  # the old message's vector is gone
+    assert vectors.collection(index._collection_name()).count() == 1  # the old message's vector is gone
 
 
 def test_tampered_record_is_reported_unverified():
@@ -113,13 +114,13 @@ def test_tampered_record_is_reported_unverified():
 def test_api_indexes_on_save_and_searches():
     from app.main import app
 
-    client = TestClient(app)
+    client = signed_in(TestClient(app))
     body = {"platform": "Instagram", "conversation": "rahul_k_07",
             "messages": [{"ref": "1", "sender": "rahul", "text": "your papa gets the photos", "flagged": True}]}
     assert client.post("/evidence", json=body).status_code == 200
-    assert vectors.collection(index.COLLECTION).count() == 1  # background task ran
+    assert vectors.collection(index._collection_name()).count() == 1  # background task ran
     res = client.get("/evidence/search", params={"q": "threat to tell my parents"}).json()
     assert res["results"][0]["text"] == "your papa gets the photos"
     assert client.get("/evidence/search", params={"q": "  "}).status_code == 400
     client.delete("/evidence")
-    assert vectors.collection(index.COLLECTION).count() == 0
+    assert vectors.collection(index._collection_name()).count() == 0
