@@ -2,12 +2,14 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app import config
+from app.agent.guardian import run_agent
+from app.agent.schemas import AgentIn
 from app.schemas import AnalyzeRequest, AnalyzeResponse
 from app.shield.classifier import analyze
 from app.complaint.drafting import ComplaintError, build_complaint
@@ -18,6 +20,7 @@ from app.sos import crypto as sos_crypto
 from app.sos import notify, people
 from app.sos import service as sos
 from app.sos.schemas import LocationIn, PersonIn, PersonPatch, ProfileIn, RespondIn, SosIn
+from app.vault import index as evidence_index
 from app.vault import report, store
 from app.vault.schemas import EvidenceIn, TamperIn
 
@@ -74,14 +77,37 @@ async def analyze_conversation(req: AnalyzeRequest) -> AnalyzeResponse:
     return await analyze(req)
 
 
+# ---------- Kavach Guardian (AI agent) ----------
+
+@app.post("/agent")
+async def guardian(req: AgentIn):
+    """She asks in plain words; the agent picks Kavach's tools step by step and reports the trail."""
+    return await run_agent(req)
+
+
 # ---------- Evidence Vault ----------
 
 @app.post("/evidence")
-def save_evidence(item: EvidenceIn):
+def save_evidence(item: EvidenceIn, background: BackgroundTasks):
     try:
-        return store.save_capture(item)
+        sealed = store.save_capture(item)
     except store.EvidenceError as exc:
         raise HTTPException(400, str(exc)) from exc
+    # Embedding into the vector DB happens after the reply, so sealing never waits on the model.
+    background.add_task(evidence_index.index_capture, sealed["capture_id"])
+    return sealed
+
+
+@app.get("/evidence/search")
+def search_evidence(q: str, k: int = 5, conversation: str | None = None, flagged_only: bool = False):
+    """Semantic search over sealed messages ("when did he talk about my college?")."""
+    if not q.strip():
+        raise HTTPException(400, "query is empty")
+    try:
+        hits = evidence_index.search(q, k=max(1, min(k, 20)), conversation=conversation, flagged_only=flagged_only)
+    except Exception as exc:  # embedding model can't load (offline first run)
+        raise HTTPException(503, f"semantic search unavailable: {exc}") from exc
+    return {"query": q, "results": hits}
 
 
 @app.get("/evidence")
@@ -117,6 +143,7 @@ def evidence_screenshot(digest: str):
 def clear_evidence():
     """Deletes everything in the Vault. Asked for by her, after use."""
     store.clear()
+    evidence_index.clear()
     return {"ok": True}
 
 
@@ -135,6 +162,7 @@ def demo_reset():
     if not config.DEMO_MODE:
         raise HTTPException(403, "demo mode is off")
     store.demo_reset()
+    evidence_index.clear()
     return {"ok": True}
 
 
@@ -310,6 +338,7 @@ async def reset_everything():
         await notify.sos_ended(active["sos_id"])  # before the history goes, so live pins are stopped
     sos.reset()
     store.clear()
+    evidence_index.clear()
     return {"ok": True, "ended_sos": bool(active)}
 
 

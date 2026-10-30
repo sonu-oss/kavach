@@ -50,6 +50,39 @@ async def groq_json(system: str, payload: dict, model: str, max_tokens: int = 15
         raise LLMError(f"invalid JSON from model: {exc}") from exc
 
 
+async def groq_chat(messages: list[dict], tools: list[dict], model: str, max_tokens: int = 1500) -> dict:
+    """One tool-calling turn; returns the assistant message (content and/or tool_calls)."""
+    if not config.GROQ_API_KEY:
+        raise LLMError("GROQ_API_KEY not set")
+    body = {
+        "model": model,
+        "temperature": 0,
+        "max_tokens": max_tokens,
+        "messages": messages,
+        "tools": tools,
+        "tool_choice": "auto",
+    }
+    if config.GROQ_REASONING_EFFORT and "gpt-oss" in model:
+        body["reasoning_effort"] = config.GROQ_REASONING_EFFORT
+    try:
+        async with httpx.AsyncClient(timeout=config.GROQ_TIMEOUT) as client:
+            resp = await client.post(
+                config.GROQ_URL, json=body, headers={"Authorization": f"Bearer {config.GROQ_API_KEY}"}
+            )
+    except httpx.HTTPError as exc:
+        raise LLMError(f"network error: {exc}") from exc
+    if resp.status_code == 429:
+        raise RateLimited(resp.text[:200])
+    if resp.status_code != 200:
+        raise LLMError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+    try:
+        msg = resp.json()["choices"][0]["message"]
+    except (KeyError, IndexError, ValueError) as exc:
+        raise LLMError(f"invalid reply from model: {exc}") from exc
+    # Only what the next turn needs: reasoning text and other extras are not sent back.
+    return {"role": "assistant", "content": msg.get("content") or "", "tool_calls": msg.get("tool_calls") or []}
+
+
 async def groq_json_with_fallback(system: str, payload: dict, model: str, max_tokens: int = 1500) -> tuple[dict, str]:
     """One retry; a rate-limited model is swapped for the fallback model (separate quota)."""
     last: Exception | None = None

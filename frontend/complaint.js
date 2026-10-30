@@ -127,7 +127,8 @@
   });
 
   // ---------- open ----------
-  async function open(captureId, title) {
+  // `drafted`: a /complaint response already in hand (the Guardian agent drafts one), so no second draft.
+  async function open(captureId, title, drafted) {
     window.kavachImport?.close();
     window.kavachVault?.close();
     window.kavachSos?.close();
@@ -159,13 +160,16 @@
     els.shield.innerHTML = `<div class="loading"><div class="spinner"></div>Preparing the legal sections…</div>`;
 
     try {
-      const res = await fetch(`${API}/complaint`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ capture_id: captureId }),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.detail || `HTTP ${res.status}`);
+      let body = drafted;
+      if (!body) {
+        const res = await fetch(`${API}/complaint`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ capture_id: captureId }),
+        });
+        body = await res.json();
+        if (!res.ok) throw new Error(body.detail || `HTTP ${res.status}`);
+      }
       if (mySeq !== seq || !isOpen) return;
       data = body;
       els.sub.textContent = `${data.complaint.accused.join(", ")} · ${data.complaint.platform}${data.complaint.incident_date ? ` · happened ${data.complaint.incident_date}` : ""} · evidence sealed ${data.complaint.evidence_sealed_on}`;

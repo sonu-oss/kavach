@@ -59,13 +59,19 @@
   }
 
   // ---------- saving ----------
-  async function save(conv, analysis, chatArea) {
+  // The chat as she sees it, plus any screenshots she imported it from.
+  async function screenshotsFor(conv, chatArea) {
     const screenshots = [];
     const capture = await captureChat(chatArea);
     if (capture) screenshots.push({ kind: "chat_capture", data_url: capture });
     for (const img of conv.images || []) {
       screenshots.push({ kind: "original_upload", data_url: await asPngOrJpeg(img) });
     }
+    return screenshots;
+  }
+
+  async function save(conv, analysis, chatArea) {
+    const screenshots = await screenshotsFor(conv, chatArea);
 
     const flagged = new Set(analysis.flagged_message_ids);
     const body = {
@@ -380,5 +386,5 @@
     refreshCount();
   })();
 
-  window.kavachVault = { save, open, close };
+  window.kavachVault = { save, open, close, screenshotsFor, refreshCount };
 })();
