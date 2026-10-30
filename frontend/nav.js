@@ -94,6 +94,33 @@
   tabs.forEach((t) => t.addEventListener("click", () => go(t.dataset.tab)));
   document.querySelectorAll("[data-go]").forEach((el) => el.addEventListener("click", () => go(el.dataset.go)));
   document.querySelector("#home-link").addEventListener("click", goHome);
+  document.querySelector("#quick-exit").addEventListener("click", () => {
+    window.kavachImport?.close();
+    window.kavachVault?.close();
+    window.kavachComplaint?.close();
+    window.kavachSos?.close();
+    goHome();
+  });
+
+  // Preferences remain local to this device. The CSS 2D scene doubles as the
+  // screen-reader and no-WebGL fallback; reduced motion removes all idle motion.
+  const reducedMotion = document.querySelector("#reduced-motion");
+  const highContrast = document.querySelector("#high-contrast");
+  try {
+    reducedMotion.checked = localStorage.getItem("bloom.reduceMotion") === "1";
+    highContrast.checked = localStorage.getItem("bloom.highContrast") === "1";
+  } catch { /* preferences remain usable for this page session */ }
+  const applyPreferences = () => {
+    body.classList.toggle("reduce-motion", reducedMotion.checked || matchMedia("(prefers-reduced-motion: reduce)").matches);
+    body.classList.toggle("high-contrast", highContrast.checked);
+    try {
+      localStorage.setItem("bloom.reduceMotion", reducedMotion.checked ? "1" : "0");
+      localStorage.setItem("bloom.highContrast", highContrast.checked ? "1" : "0");
+    } catch { /* private browsing may disable localStorage */ }
+  };
+  reducedMotion.addEventListener("change", applyPreferences);
+  highContrast.addEventListener("change", applyPreferences);
+  applyPreferences();
   setActive(null);
   window.kavachHome = goHome;
 

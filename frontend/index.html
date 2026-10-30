@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Kavach AI</title>
+  <title>Kavach</title>
   <!-- Installable app: Add to Home Screen on iPhone, Install app on Android -->
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="theme-color" content="#050507" />
   <link rel="icon" href="/icons/icon-192.png" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -14,21 +14,22 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Kavach" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500;1,600&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body class="at-home m-main">
   <header class="topbar">
     <button class="brand" id="home-link" type="button" aria-label="Kavach home">
-      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v6c0 5.25 3.4 10.15 8 11.5 4.6-1.35 8-6.25 8-11.5V5l-8-3Z"/></svg>
+      <span class="brand__bloom" aria-hidden="true">✳</span>
       Kavach
     </button>
     <nav class="nav" aria-label="Main">
-      <button class="nav-link" data-nav="shield" type="button">Shield</button>
+      <button class="nav-link" data-nav="shield" type="button">Garden</button>
       <button class="nav-link" id="vault-btn" data-nav="vault" type="button">Vault <span id="vault-count" class="nav-count">0</span></button>
-      <button class="nav-link" id="sos-btn" data-nav="sos" type="button">SOS</button>
+      <button class="nav-link" id="sos-btn" data-nav="sos" type="button">Safety Space</button>
       <a class="nav-link" href="/responder.html" target="_blank" rel="noopener">Responders ↗</a>
     </nav>
+    <button class="quick-exit" id="quick-exit" type="button" aria-label="Quick exit to a neutral screen">Quick exit</button>
     <span class="nav-status" id="nav-status">Prototype</span>
   </header>
 
@@ -41,26 +42,29 @@
   </ol>
 
   <!-- Home: one message, one main action -->
-  <section class="home" id="home">
-    <div class="home__hero">
-      <p class="eyebrow">Online safety for women · India</p>
-      <h1>Detect the threat.<br />Preserve the proof.</h1>
-      <p class="home__sub">Scan the chat. Seal the proof. File the complaint.</p>
-      <div class="home__cta">
-        <button class="btn btn--primary btn--lg" data-go="scan" type="button">Scan a chat screenshot <span aria-hidden="true">›</span></button>
-        <button class="btn btn--lg" data-go="shield" type="button">Try the demo chats</button>
+  <section class="home bloom-home" id="home">
+    <div class="bloom-home__copy">
+      <p class="bloom-kicker"><span class="bloom-sparkle" aria-hidden="true">✦</span> YOUR SECURITY, IN FULL BLOOM</p>
+      <h1>Still protected.<br><em>Still you.</em></h1>
+      <p class="bloom-home__sub">A little more peace of mind, at your own pace.</p>
+      <div class="bloom-status"><span class="status-sparkle" aria-hidden="true">✦</span><span><strong>All quiet tonight.</strong><small>Your protection is looking good.</small></span><span class="bloom-status__ring" aria-hidden="true"></span></div>
+      <div class="home__cta bloom-home__cta">
+        <button class="btn btn--primary btn--lg" data-go="shield" type="button">Visit your garden <span aria-hidden="true">↗</span></button>
+        <button class="btn btn--lg bloom-secondary" data-go="sos" type="button">Open Safety Space</button>
       </div>
+      <div class="bloom-preferences"><label><input type="checkbox" id="reduced-motion" /> Reduce motion</label><label><input type="checkbox" id="high-contrast" /> High contrast</label></div>
     </div>
-    <ol class="home__tiles">
-      <li data-go="scan"><span class="tile__no">01</span><strong>Scan</strong><span>Spot threats in any chat</span></li>
-      <li data-go="vault"><span class="tile__no">02</span><strong>Seal</strong><span>Tamper-proof evidence</span></li>
-      <li data-go="shield"><span class="tile__no">03</span><strong>Report</strong><span>Complaint for cybercrime.gov.in</span></li>
-      <li data-go="sos" class="tile--sos"><span class="tile__no">In danger?</span><strong>SOS</strong><span>Silent alert via a fake call</span></li>
-    </ol>
-    <div class="home__reset">
-      <button type="button" class="btn btn--ghost small" id="reset-all">Reset everything</button>
-      <span class="muted small">Clears chats, Vault, drafts and SOS alerts. Contacts and responders stay.</span>
+    <div class="bloom-scene" role="img" aria-label="Four softly glowing flowers represent account, device, privacy, and password protection. All are in bloom.">
+      <svg class="bloom-orbit" viewBox="0 0 720 600" aria-hidden="true"><ellipse cx="360" cy="300" rx="300" ry="156" transform="rotate(-18 360 300)"/><ellipse cx="360" cy="300" rx="262" ry="205" transform="rotate(32 360 300)"/><path d="M67 356C201 70 483 80 647 301"/></svg>
+      <span class="pollen pollen--one" aria-hidden="true"></span><span class="pollen pollen--two" aria-hidden="true"></span><span class="pollen pollen--three" aria-hidden="true"></span>
+      <div class="flower flower--accounts" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><b></b></div>
+      <div class="flower flower--devices" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><b></b></div>
+      <div class="flower flower--privacy" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><b></b></div>
+      <div class="flower flower--passwords" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><b></b></div>
+      <div class="scene-caption scene-caption--accounts"><span>✦</span> ACCOUNTS</div><div class="scene-caption scene-caption--devices"><span>✦</span> DEVICES</div><div class="scene-caption scene-caption--privacy"><span>✦</span> PRIVACY</div><div class="scene-caption scene-caption--passwords"><span>✦</span> PASSWORDS</div>
+      <p class="bloom-scene__fallback">Your garden is growing. Each flower is one part of your digital life.</p>
     </div>
+    <div class="bloom-home__footer"><span>YOUR SPACE, YOUR PACE</span><button type="button" class="btn btn--ghost small" id="reset-all">Reset demo</button></div>
   </section>
 
   <div class="app">
