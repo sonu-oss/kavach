@@ -8,6 +8,7 @@ only ever see an approximate area until they accept an alert.
 import secrets
 from datetime import datetime, timezone
 
+from app.auth import context
 from app.sos import db
 
 
@@ -31,19 +32,21 @@ def public(p: dict) -> dict:
     }
 
 
-def create(kind: str, name: str, phone: str = "", email: str = "", lat=None, lng=None) -> dict:
+def create(kind: str, name: str, phone: str = "", email: str = "", lat=None, lng=None, owner=None) -> dict:
     if kind not in ("contact", "responder"):
         raise PeopleError("kind must be contact or responder")
     if not name.strip():
         raise PeopleError("name is required")
     _check_location(lat, lng)
     pid = secrets.token_hex(5)
+    # Contacts belong to the signed-in account; responders are a shared network.
+    owner = (owner or context.current()) if kind == "contact" else None
     with db.lock:
         db.run(
-            "INSERT INTO people (id, kind, name, phone, email, link_code, verified, opted_in, lat, lng, location_at, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)",
+            "INSERT INTO people (id, kind, name, phone, email, link_code, verified, opted_in, lat, lng, location_at,"
+            " created_at, owner) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)",
             pid, kind, name.strip(), phone.strip(), email.strip(), secrets.token_urlsafe(6),
-            1 if kind == "contact" else 0, lat, lng, _now() if lat is not None else None, _now(),
+            1 if kind == "contact" else 0, lat, lng, _now() if lat is not None else None, _now(), owner,
         )
     return public(get(pid))
 
@@ -56,7 +59,22 @@ def get(pid: str) -> dict:
 
 
 def list_kind(kind: str) -> list[dict]:
-    return [public(p) for p in db.rows("SELECT * FROM people WHERE kind=? ORDER BY created_at", kind)]
+    if kind == "contact":
+        rows = db.rows("SELECT * FROM people WHERE kind='contact' AND owner IS ? ORDER BY created_at", context.current())
+    else:
+        rows = db.rows("SELECT * FROM people WHERE kind=? ORDER BY created_at", kind)
+    return [public(p) for p in rows]
+
+
+def owns(p: dict) -> bool:
+    """A contact can only be seen or changed by the account it belongs to."""
+    return p["kind"] != "contact" or p["owner"] == context.current()
+
+
+def linked_contacts(owner=None) -> list[dict]:
+    """Trusted contacts who have connected Telegram (raw rows: includes the chat id)."""
+    return db.rows("SELECT * FROM people WHERE kind='contact' AND telegram_chat_id IS NOT NULL AND owner IS ?"
+                   " ORDER BY created_at", owner or context.current())
 
 
 def update(pid: str, **fields) -> dict:
@@ -105,15 +123,54 @@ def by_chat(chat_id: int) -> list[dict]:
     return db.rows("SELECT * FROM people WHERE telegram_chat_id=?", chat_id)
 
 
-def her_name() -> str:
-    r = db.one("SELECT value FROM profile WHERE key='name'")
+INVITE_PREFIX = "join_"  # /start join_<code>: the shared link that adds whoever opens it as a contact
+
+
+def _key(key: str, owner) -> str:
+    """Profile keys are per account ("<user id>:name"); plain keys are from before accounts."""
+    return f"{owner}:{key}" if owner else key
+
+
+def invite_code(reset: bool = False, owner=None) -> str:
+    """One shared code for this account's trusted contacts. Reset it to stop an old link working."""
+    key = _key("invite_code", owner or context.current())
+    with db.lock:
+        r = db.one("SELECT value FROM profile WHERE key=?", key)
+        if r and not reset:
+            return r["value"]
+        code = secrets.token_urlsafe(9)
+        db.run("INSERT INTO profile (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+               key, code)
+        return code
+
+
+def join_by_invite(code: str, chat_id: int, tg_name: str) -> tuple[dict | None, bool]:
+    """Someone opened a shared invite link and tapped Start. Returns (contact, newly_added);
+    (None, False) when the link is wrong or was reset. The code says whose contact they become."""
+    if not code:
+        return None, False
+    r = db.one("SELECT key FROM profile WHERE value=? AND (key='invite_code' OR key LIKE '%:invite_code')", code)
+    if not r:
+        return None, False
+    owner = r["key"].split(":", 1)[0] if ":" in r["key"] else None
+    existing = db.one("SELECT * FROM people WHERE kind='contact' AND telegram_chat_id=? AND owner IS ?", chat_id, owner)
+    if existing:
+        return get(existing["id"]), False
+    p = create("contact", (tg_name or "Telegram contact").strip()[:60] or "Telegram contact", owner=owner)
+    with db.lock:
+        db.run("UPDATE people SET telegram_chat_id=? WHERE id=?", chat_id, p["id"])
+    return get(p["id"]), True
+
+
+def her_name(owner=None) -> str:
+    r = db.one("SELECT value FROM profile WHERE key=?", _key("name", owner or context.current()))
     return (r or {}).get("value") or "Someone you know"
 
 
 def set_her_name(name: str) -> str:
     with db.lock:
-        db.run("INSERT INTO profile (key, value) VALUES ('name', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-               name.strip()[:60])
+        db.run("INSERT INTO profile (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+               _key("name", context.current()), name.strip()[:60])
     return her_name()
 
 

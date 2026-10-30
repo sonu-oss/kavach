@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app import config
 from app.sos import crypto, db, notify, people, service
+from conftest import signed_in
 
 # The real senders, kept before the autouse fixture replaces them for endpoint tests.
 REAL = {n: getattr(notify, n) for n in ("sos_started", "location_updated", "responder_accepted", "sos_ended", "location_found", "sos_repeated")}
@@ -37,7 +38,7 @@ def client():
     from app.main import app
 
     with TestClient(app) as c:
-        yield c
+        yield signed_in(c)
 
 
 def enc(loc=HER):
@@ -224,7 +225,7 @@ def _start_sos(contacts=(), responders=()):
         if chat:
             people.link_telegram(p["link_code"], chat)
         ids.append(p["id"])
-    sos_id = service.trigger("u", HER, "manual", "demo", "https://example.trycloudflare.com")["sos_id"]
+    sos_id = service.trigger(service.LEGACY_USER, HER, "manual", "demo", "https://example.trycloudflare.com")["sos_id"]
     return sos_id, ids
 
 
@@ -309,7 +310,7 @@ def test_contact_gets_no_pin_until_location_found(fake_telegram):
     p = people.create("responder", "Asha", lat=NEAR[0], lng=NEAR[1])
     people.verify(p["id"])
     people.link_telegram(p["link_code"], 222)
-    sos_id = service.trigger("u", None, "manual", "none", "https://x.trycloudflare.com")["sos_id"]
+    sos_id = service.trigger(service.LEGACY_USER, None, "manual", "none", "https://x.trycloudflare.com")["sos_id"]
     asyncio.run(REAL["sos_started"](sos_id))
     assert not any(m == "sendLocation" for m, _ in fake_telegram)
     assert "hasn't found her location yet" in next(p["text"] for m, p in fake_telegram if m == "sendMessage")
@@ -375,7 +376,7 @@ def test_pressing_again_alerts_everyone_again(fake_telegram):
     first = len(fake_telegram)
     p = people.create("contact", "Riya")  # added after the first press
     people.link_telegram(p["link_code"], 333)
-    again = service.trigger("u", HER, "manual", "gps", "https://example.trycloudflare.com")
+    again = service.trigger(service.LEGACY_USER, HER, "manual", "gps", "https://example.trycloudflare.com")
     assert again["sos_id"] == sos_id and again["event"] == "repeated"
     asyncio.run(REAL["sos_repeated"](sos_id))
     texts = {p["chat_id"]: p["text"] for m, p in fake_telegram[first:] if m == "sendMessage"}
@@ -424,3 +425,43 @@ def test_coordinates_go_to_contacts_and_accepting_responders_only(fake_telegram)
     service.respond(sos_id, asha, "accept")
     asyncio.run(REAL["responder_accepted"](sos_id, asha))
     assert any("12.935200, 77.624500" in t for t in texts(222))
+
+
+def test_shared_invite_link_adds_each_person_once_and_can_be_reset(monkeypatch):
+    sent = []
+
+    async def tg(method, **params):
+        sent.append((method, params))
+        return {}
+
+    monkeypatch.setattr(notify, "tg", tg)
+
+    def start(code, chat, first="Asha", last=None):
+        frm = {"first_name": first, **({"last_name": last} if last else {})}
+        asyncio.run(notify._handle({"message": {"text": f"/start {people.INVITE_PREFIX}{code}",
+                                                "chat": {"id": chat}, "from": frm}}))
+        return sent[-1][1]["text"]
+
+    code = people.invite_code()
+    assert people.invite_code() == code  # stable until reset
+    assert "Connected, Asha Rao" in start(code, 501, "Asha", "Rao")
+    assert "Connected, Ravi" in start(code, 502, "Ravi")
+    assert "already connected" in start(code, 501)  # same Telegram account twice: no duplicate
+    contacts = people.list_kind("contact")
+    assert sorted(c["name"] for c in contacts) == ["Asha Rao", "Ravi"]
+    assert all(c["telegram_linked"] for c in contacts)
+
+    new = people.invite_code(reset=True)
+    assert new != code
+    assert "no longer valid" in start(code, 503, "Stranger")  # old link stops adding people
+    assert len(people.list_kind("contact")) == 2
+    assert "Connected, Meera" in start(new, 504, "Meera")
+
+
+def test_invite_endpoints(client, monkeypatch):
+    monkeypatch.setattr(config, "TELEGRAM_BOT_TOKEN", "x")
+    monkeypatch.setattr(notify, "_bot_username", "kavach_test_bot")
+    first = client.get("/sos/invite").json()["link"]
+    assert first.startswith("https://t.me/kavach_test_bot?start=join_")
+    assert client.get("/sos/invite").json()["link"] == first
+    assert client.post("/sos/invite/reset").json()["link"] != first

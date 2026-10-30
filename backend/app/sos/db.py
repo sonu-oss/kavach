@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS people (
     lat              REAL,                       -- responders: where they usually are
     lng              REAL,
     location_at      TEXT,
-    created_at       TEXT NOT NULL
+    created_at       TEXT NOT NULL,
+    owner            TEXT                        -- contacts: the account they belong to (NULL: before accounts)
 );
 CREATE TABLE IF NOT EXISTS profile (
     key   TEXT PRIMARY KEY,
@@ -75,6 +76,8 @@ def connect():
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(sos)")}
         if "has_location" not in cols:  # databases created before this column existed
             conn.execute("ALTER TABLE sos ADD COLUMN has_location INTEGER NOT NULL DEFAULT 1")
+        if "owner" not in {r["name"] for r in conn.execute("PRAGMA table_info(people)")}:  # before accounts
+            conn.execute("ALTER TABLE people ADD COLUMN owner TEXT")
         yield conn
     finally:
         conn.close()

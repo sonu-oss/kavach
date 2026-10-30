@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app import config
 from app.vault import report, store
 from app.vault.schemas import EvidenceIn
+from conftest import signed_in
 
 def _png() -> str:
     import io
@@ -128,7 +129,7 @@ def test_report_renders_for_verified_and_broken_vaults():
 def test_api_rejects_non_image_screenshots_and_gates_demo_endpoints(monkeypatch):
     from app.main import app
 
-    client = TestClient(app)
+    client = signed_in(TestClient(app))
     body = capture().model_dump()
     body["screenshots"][0]["data_url"] = "data:text/html;base64,PGgxPmhpPC9oMT4="
     assert client.post("/evidence", json=body).status_code == 400
@@ -175,7 +176,7 @@ def test_future_dates_and_blank_platform_are_rejected():
 def test_she_can_clear_the_vault_without_demo_mode(monkeypatch):
     from app.main import app
 
-    client = TestClient(app)
+    client = signed_in(TestClient(app))
     monkeypatch.setattr(config, "DEMO_MODE", False)
     assert client.post("/evidence", json=capture().model_dump()).status_code == 200
     assert client.get("/evidence").json()["records"]

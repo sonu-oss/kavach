@@ -22,6 +22,12 @@ SELF = "me"
 KEEP_MIN_SCORE = 40  # reranker score needed to cite a section at all
 CONFIDENT_SCORE = 65  # below this the UI says "Consult a lawyer to confirm this applies"
 MAX_SECTIONS = 5
+MAX_TIMELINE = 25  # messages listed in the template timeline; longer chats keep the flagged ones
+
+# Screenshot import can read the header's status line as the contact name ("Active 2m ago").
+_STATUS_NAME = re.compile(
+    r"^(online|offline|typing\W*|last seen.*|active( now| today| yesterday| \d+\s*[smhdw]\w* ago)?|screenshot chat)$", re.I
+)
 
 CATEGORY_LABEL = {
     "harassment": "online sexual harassment",
@@ -96,7 +102,8 @@ async def build_complaint(capture_id: str) -> dict:
     shots = [r for r in rows if r["kind"] == "screenshot"]
     senders = sorted({m["sender"] for m in messages if m["sender"] != SELF})
     # One-to-one chat: the conversation name is the handle she sees (e.g. "rahul_k_07").
-    accused = [first["conversation"]] if len(senders) == 1 else senders
+    conv = (first["conversation"] or "").strip()
+    accused = [conv if conv and not _STATUS_NAME.match(conv) else "an unknown account"] if len(senders) == 1 else senders
 
     # ---- facts for the LLM (masked) ----
     masker = Masker()
@@ -165,20 +172,27 @@ async def build_complaint(capture_id: str) -> dict:
     def display(sender: str) -> str:
         return "me" if sender == SELF else (accused[0] if len(senders) == 1 else sender)
 
+    def describe(r: dict) -> str:
+        if r["kind"] == "screenshot":
+            return ("Screenshot of the chat as captured by Kavach" if r["screenshot_kind"] == "chat_capture"
+                    else "Original screenshot provided by the complainant")
+        at = f" at {r['message_time']}" if r["message_time"] else ""
+        return f"Message from {display(r['sender'])}{at}: “{r['message_text']}”"
+
+    # Every sealed item, in chat order, so the evidence numbers have no gaps.
     evidence = [
         {
             "id": f"E{r['id']}",
             "kind": "screenshot" if r["kind"] == "screenshot" else "message",
-            "description": (
-                ("Screenshot of the chat as captured by Kavach" if r["screenshot_kind"] == "chat_capture"
-                 else "Original screenshot provided by the complainant")
-                if r["kind"] == "screenshot"
-                else f"Message from {display(r['sender'])} at {r['message_time'] or 'unknown time'}: “{r['message_text']}”"
-            ),
+            "description": describe(r),
+            "sender": None if r["kind"] == "screenshot" else display(r["sender"]),
+            "time": r["message_time"] or "",
+            "text": r["message_text"] or "",
+            "flagged": bool(r["flagged"]),
             "sha256": r["hash"],
             "verified": status.get(r["id"]) == "ok",
         }
-        for r in shots + [m for m in messages if m["flagged"]]
+        for r in shots + messages
     ]
 
     out_text = lambda t: masker.unmask(_humanise(t))  # noqa: E731
@@ -368,10 +382,7 @@ def _fallback_draft(facts: dict, kept: list[dict], category: str) -> dict:
             f"tamper-evident evidence record on {facts['date_saved_to_vault']}. "
             f"I believe these acts may fall under {cites}, subject to confirmation."
         ),
-        "timeline": [
-            {"when": m["time"] or "", "what": f"{m['sender']} sent a threatening or abusive message", "evidence_ids": [m["evidence_id"]]}
-            for m in flagged
-        ],
+        "timeline": _fallback_timeline(facts),
         "section_explanations": [],
         "relief_sought": [
             "Register my complaint and investigate the accused",
@@ -385,6 +396,21 @@ def _fallback_draft(facts: dict, kept: list[dict], category: str) -> dict:
             f"investigate and take action against the accused."
         ),
     }
+
+
+def _fallback_timeline(facts: dict) -> list[dict]:
+    """The whole exchange in order, quoted, so the police see context: what he sent and that she asked him to stop."""
+    msgs = facts["messages"]
+    if len(msgs) > MAX_TIMELINE:
+        msgs = [m for m in msgs if m["flagged"]][:MAX_TIMELINE]
+    out = []
+    for m in msgs:
+        if m["sender"] == SELF:
+            what = f"I replied: “{m['text']}”"
+        else:
+            what = f"{m['sender']} wrote: “{m['text']}”" + (" (threatening)" if m["flagged"] else "")
+        out.append({"when": m["time"] or "", "what": what, "evidence_ids": [m["evidence_id"]]})
+    return out
 
 
 # ---------- cybercrime.gov.in hand-off ----------
@@ -410,7 +436,7 @@ _PORTAL_BAD_CHARS = re.compile(r"[#$@^*`~|!]")
 
 def _portal_handoff(category, first, messages, accused, description) -> dict:
     route = _PORTAL_ROUTE.get(category, _PORTAL_ROUTE["harassment"])
-    identifiers = [{"type": f"{first['platform']} handle / name", "value": a} for a in accused]
+    identifiers = [{"type": f"{first['platform']} handle / name", "value": a} for a in accused if a != "an unknown account"]
     seen = set()
     for m in messages:
         if m["sender"] == SELF:
