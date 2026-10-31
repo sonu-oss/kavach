@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 
+from app import database
 from app.sos import db
 
 SESSION_TTL_S = 7 * 24 * 3600
@@ -59,9 +60,11 @@ class AuthError(ValueError):
         self.status = status
 
 
+database.schema("auth", _SCHEMA)
+
+
 def _init() -> None:
-    with db.connect() as c:
-        c.executescript(_SCHEMA)
+    """Tables are created by app.database on first use; kept so callers read the same."""
 
 
 def _now() -> str:

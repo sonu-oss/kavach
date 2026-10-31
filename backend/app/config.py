@@ -19,7 +19,10 @@ GROQ_FALLBACK_MODEL = os.getenv("GROQ_FALLBACK_MODEL", "openai/gpt-oss-20b").str
 GROQ_TIMEOUT = float(os.getenv("GROQ_TIMEOUT", "12"))
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-# Evidence Vault storage (SQLite + screenshot files). Override for tests.
+# Postgres connection string (e.g. Supabase). Set: every table, vector and screenshot lives there.
+# Blank: a local SQLite file in DATA_DIR, as for local runs and tests.
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+# Local files: the SQLite database when DATABASE_URL is blank, and the embedding model cache.
 DATA_DIR = Path(os.getenv("KAVACH_DATA_DIR", str(BACKEND_DIR / "data")))
 # Enables the "simulate tampering" and "reset vault" endpoints for the live demo.
 DEMO_MODE = os.getenv("KAVACH_DEMO", "1").strip() == "1"

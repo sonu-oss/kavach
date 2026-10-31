@@ -30,9 +30,15 @@ Click **Scan a screenshot** (or just press ⌘V / Ctrl+V with a screenshot on th
 3. **She checks the result:** she can switch Them/You, edit misread text (hard-to-read lines are outlined in amber), and delete or add lines. She must also choose **which app** the chat is from, and can set **when it happened** (defaults to today, can't be in the future). Then she presses **Scan with Kavach**. The app and date are sealed into every Vault record and used in the evidence PDF, the complaint letter and the portal fields; without a stated date, the portal tab says the date shown is only the save date.
 4. The chat appears in the list like any other conversation, so the Shield panel, highlights and the Vault / Complaint buttons work the same way. The original images are kept on the conversation for the Evidence Vault.
 
-`frontend/samples/` holds two test screenshots: Hinglish in light mode and Kannada-English in dark mode. Load them with **Try a sample**. The first time, the text reader downloads about 10 MB of language data from a CDN, so do one run before the demo while online.
+`frontend/assets/samples/` holds two test screenshots: Hinglish in light mode and Kannada-English in dark mode. Load them with **Try a sample**. The first time, the text reader downloads about 10 MB of language data from a CDN, so do one run before the demo while online.
 
-## Vector database (ChromaDB)
+## Database (Supabase Postgres or SQLite)
+
+Set `DATABASE_URL` in `backend/.env` to a Postgres connection string (e.g. Supabase → Connect → Session pooler) and everything is stored there: accounts, sessions, the Evidence Vault and its screenshots, contacts, SOS history, the SOS encryption key, and the vectors (pgvector, enabled automatically). Tables are created on first start. With `DATABASE_URL` blank, Kavach uses a SQLite file in `backend/data/` and ChromaDB on disk, which is how it runs on a laptop and in tests. The code is the same either way: `backend/app/database.py` adapts the SQL to the engine in use.
+
+Tests never touch the database in `.env`. To run them on a throwaway Postgres: `KAVACH_TEST_DATABASE_URL=postgresql://… pytest`.
+
+## Vector database (ChromaDB locally, pgvector on Postgres)
 
 Kavach keeps its embeddings in **ChromaDB**, stored on disk in `backend/data/chroma/`. It runs inside the app, so there is no separate server to start. The vectors come from `BAAI/bge-small-en-v1.5` (fastembed), which runs on the machine, so no text is sent anywhere to be embedded. About 65 MB is downloaded the first time.
 
@@ -116,15 +122,15 @@ backend/app/schemas.py           Strict request/response contract
 backend/app/shield/prefilter.py  English / Hinglish / Kannada-English keyword rules
 backend/app/shield/pii.py        PII masking with stable tokens
 backend/app/shield/classifier.py Groq call, validation, retry, fallback
-frontend/app.js                  Mock chat + Shield panel (plain HTML/JS)
-frontend/import.js               Screenshot import: on-device OCR, bubble → sender parsing, review list
-frontend/vault.js                Save to Vault (html2canvas), Vault screen, Verify animation, demo controls
+frontend/js/app.js               Mock chat + Shield panel (plain HTML/JS)
+frontend/js/import.js            Screenshot import: on-device OCR, bubble → sender parsing, review list
+frontend/js/vault.js             Save to Vault (html2canvas), Vault screen, Verify animation, demo controls
 backend/app/vault/store.py       SQLite store, hash chain, verification, demo tamper/reset
 backend/app/vault/report.py      ReportLab PDF with Section 63 BSA certificate template
 backend/app/complaint/           Legal corpus, hybrid retrieval, rerank + draft + citation checker, complaint PDF
 backend/app/llm.py               Shared Groq JSON call with rate-limit fallback
-frontend/complaint.js            Complaint screen, her details, laws tab, cybercrime.gov.in hand-off
-frontend/sos.js                  Fake-call screen, hidden long-press, in-browser encryption, presenter panel
+frontend/js/complaint.js         Complaint screen, her details, laws tab, cybercrime.gov.in hand-off
+frontend/js/sos.js               Fake-call screen, hidden long-press, in-browser encryption, presenter panel
 frontend/track.html              Trusted contact's live-location page
 frontend/responder.html          Responder dashboard (Leaflet map, accept/decline)
 backend/app/sos/                 SOS rules, people, Telegram + email alerts, SQLite tables, RSA key handling

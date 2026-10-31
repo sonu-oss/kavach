@@ -1,6 +1,18 @@
+import os
+
 import pytest
 
-from app import vectors
+from app import config, database, vectors
+
+# Tests never use the DATABASE_URL from .env (that is the real database). They run on SQLite,
+# or on a throwaway Postgres given as KAVACH_TEST_DATABASE_URL.
+config.DATABASE_URL = os.environ.get("KAVACH_TEST_DATABASE_URL", "")
+
+
+@pytest.fixture(autouse=True)
+def empty_test_database():
+    if database.is_postgres():
+        database.truncate_all_for_tests()
 
 
 @pytest.fixture(autouse=True)
