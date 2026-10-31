@@ -80,11 +80,7 @@ Without a Groq key, or if the model fails partway, a fixed plan finishes the job
 ### Run
 
 ```bash
-cd backend
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp .env.example .env        # paste your GROQ_API_KEY
-.venv/bin/uvicorn app.main:app --reload --port 8000
-```
+g
 
 Open http://localhost:8000. The backend serves the frontend too. Without a key, the panel runs in keyword-fallback mode and says so.
 
