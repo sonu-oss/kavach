@@ -63,7 +63,7 @@ Restart the server after editing `.env`. The SOS **Setup** panel shows "Telegram
 
 | File | What it does |
 |---|---|
-| `frontend/sos.js` | Fake call, hidden 2-second press, GPS + live updates, browser encryption, Setup (her name, contacts, Telegram QR), presenter panel, I'm safe |
+| `frontend/js/sos.js` | Fake call, hidden 2-second press, GPS + live updates, browser encryption, Setup (her name, contacts, Telegram QR), presenter panel, I'm safe |
 | `frontend/responder.html` | Responder sign-up, Telegram connect, opt in/out, admin approval, alerts map, Accept / Decline |
 | `frontend/track.html` | Trusted contact's live-location page |
 | `backend/app/sos/service.py` | SOS rules: who's alerted, approximate vs exact, expiry, rate limit |

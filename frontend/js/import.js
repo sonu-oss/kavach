@@ -28,7 +28,7 @@
     hint: $("#import-hint"),
   };
 
-  const SAMPLES = ["samples/sample-hinglish.png", "samples/sample-kannada.png"];
+  const SAMPLES = ["/assets/samples/sample-hinglish.png", "/assets/samples/sample-kannada.png"];
   const OCR_STATUS = {
     "loading tesseract core": "Loading text reader…",
     "initializing tesseract": "Starting text reader…",

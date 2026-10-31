@@ -90,6 +90,6 @@ At 390 px, keep the same sequence in a single column; use a 44 px progress rail,
 
 ## Home scene starter
 
-The current production starter is `.bloom-scene` in `frontend/index.html` with motion and responsive styling in `frontend/styles.css`. It composes five translucent CSS petals per flower, two orbital ellipses, sparse pollen, and a breathing glow. Motion runs slowly and `prefers-reduced-motion` plus the in-app toggle both stop it. The illustration is exposed to assistive technology as one concise description; decorative nodes are hidden from the accessibility tree.
+The current production starter is `.bloom-scene` in `frontend/index.html` with motion and responsive styling in `frontend/css/styles.css`. It composes five translucent CSS petals per flower, two orbital ellipses, sparse pollen, and a breathing glow. Motion runs slowly and `prefers-reduced-motion` plus the in-app toggle both stop it. The illustration is exposed to assistive technology as one concise description; decorative nodes are hidden from the accessibility tree.
 
 For the requested React Three Fiber direction, preserve the same `KavachFlowerCluster` contract and provide an HTML/2D fallback before lazy-loading a compressed GLB. Keep bloom/DOF subtle, cap DPR to 1.5, reduce particles and postprocessing on mobile, and ease pointer parallax. Do not make WebGL a prerequisite for opening the app or using Safety Space.
