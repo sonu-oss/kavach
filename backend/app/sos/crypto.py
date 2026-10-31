@@ -11,9 +11,13 @@ import json
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
-from app import config
+from app import config, database
 
 _key: rsa.RSAPrivateKey | None = None
+
+# The private key lives in the database (so it survives redeploys of a server with no disk);
+# a key file from before that is imported once.
+database.schema("secrets", "CREATE TABLE IF NOT EXISTS app_secrets (name TEXT PRIMARY KEY, value TEXT NOT NULL)")
 
 
 def _key_path():
@@ -23,16 +27,21 @@ def _key_path():
 def private_key() -> rsa.RSAPrivateKey:
     global _key
     if _key is None:
-        path = _key_path()
-        if path.exists():
-            _key = serialization.load_pem_private_key(path.read_bytes(), password=None)
+        r = database.one("SELECT value FROM app_secrets WHERE name='sos_private_key'")
+        if r:
+            pem = r["value"].encode()
+        elif _key_path().exists():
+            pem = _key_path().read_bytes()
         else:
-            _key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-            config.DATA_DIR.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(_key.private_bytes(
+            pem = rsa.generate_private_key(public_exponent=65537, key_size=2048).private_bytes(
                 serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
-            ))
-            path.chmod(0o600)
+            )
+        if not r:
+            # ON CONFLICT: if another process stored a key first, theirs wins and is read back.
+            database.run("INSERT INTO app_secrets (name, value) VALUES ('sos_private_key', ?) ON CONFLICT (name) DO NOTHING",
+                         pem.decode())
+            pem = database.one("SELECT value FROM app_secrets WHERE name='sos_private_key'")["value"].encode()
+        _key = serialization.load_pem_private_key(pem, password=None)
     return _key
 
 

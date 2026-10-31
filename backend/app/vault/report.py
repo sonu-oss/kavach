@@ -193,10 +193,10 @@ def build_report() -> bytes:
         story.append(Spacer(1, 4))
 
         for s in (r for r in items if r["kind"] == "screenshot"):
-            path = store.screenshot_path(s["screenshot_sha256"])
+            shot = store.screenshot(s["screenshot_sha256"])
             label = "Chat capture" if s["screenshot_kind"] == "chat_capture" else "Original screenshot"
             block = [p(f"#{s['id']} {label} · {_status_label(status[s['id']])}", "small")]
-            image = _fit_image(path, max_w=90 * mm, max_h=120 * mm) if path else None
+            image = _fit_image(shot[0], max_w=90 * mm, max_h=120 * mm) if shot else None
             block.append(image or p("<font color='#dc2f45'>Screenshot file missing or unreadable.</font>", "small"))
             block.append(p(f"SHA-256 {s['hash']}", "mono"))
             story.append(KeepTogether(block))
@@ -271,9 +271,9 @@ def _banner(html: str, color) -> Table:
     return t
 
 
-def _fit_image(path, max_w, max_h) -> Image | None:
+def _fit_image(data: bytes, max_w, max_h) -> Image | None:
     try:
-        img = Image(str(path))
+        img = Image(io.BytesIO(data))
         img.imageWidth  # forces the file to be read now, not mid-build
     except Exception:
         return None

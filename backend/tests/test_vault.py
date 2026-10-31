@@ -4,7 +4,7 @@ import sqlite3
 import pytest
 from fastapi.testclient import TestClient
 
-from app import config
+from app import config, database
 from app.vault import report, store
 from app.vault.schemas import EvidenceIn
 from conftest import signed_in
@@ -48,10 +48,8 @@ def statuses():
 
 
 def raw_sql(sql, *args):
-    conn = sqlite3.connect(config.DATA_DIR / "kavach.db")
-    conn.execute(sql, args)
-    conn.commit()
-    conn.close()
+    """An edit made straight in the database, bypassing the Vault (Postgres or SQLite)."""
+    database.run(sql, *args)
 
 
 def test_saved_records_form_a_valid_chain():
@@ -103,7 +101,7 @@ def test_deleting_a_record_is_detected():
 def test_swapped_screenshot_file_is_detected():
     store.save_capture(capture())
     digest = store.all_rows()[0]["screenshot_sha256"]
-    (config.DATA_DIR / "screenshots" / f"{digest}.png").write_bytes(b"not the original image")
+    raw_sql("UPDATE screenshots SET data=? WHERE sha256=?", b"not the original image", digest)
     assert statuses()[0] == "file_changed"
 
 
@@ -122,7 +120,7 @@ def test_report_renders_for_verified_and_broken_vaults():
     assert ok_pdf.startswith(b"%PDF") and broken_pdf.startswith(b"%PDF") and ok_pdf != broken_pdf
     # A replaced, unreadable screenshot must not stop the report from being produced.
     digest = store.all_rows()[0]["screenshot_sha256"]
-    (config.DATA_DIR / "screenshots" / f"{digest}.png").write_bytes(b"garbage")
+    raw_sql("UPDATE screenshots SET data=? WHERE sha256=?", b"garbage", digest)
     assert report.build_report().startswith(b"%PDF")
 
 
@@ -152,6 +150,7 @@ def test_records_without_incident_date_still_verify():
     assert store.all_rows()[0]["incident_date"] is None and store.verify()["ok"]
 
 
+@pytest.mark.skipif(database.is_postgres(), reason="SQLite file format migration")
 def test_old_vault_without_the_column_is_migrated(tmp_path):
     old_schema = store._SCHEMA.replace("    incident_date      TEXT,                   -- YYYY-MM-DD, stated by the complainant\n", "")
     assert "incident_date" not in old_schema
@@ -182,7 +181,7 @@ def test_she_can_clear_the_vault_without_demo_mode(monkeypatch):
     assert client.get("/evidence").json()["records"]
     assert client.delete("/evidence").status_code == 200
     assert client.get("/evidence").json()["records"] == []
-    assert not list((config.DATA_DIR / "screenshots").glob("*"))
+    assert database.one("SELECT COUNT(*) AS n FROM screenshots")["n"] == 0
 
 
 def test_demo_tamper_never_picks_the_last_record():

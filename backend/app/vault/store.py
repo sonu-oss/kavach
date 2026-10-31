@@ -19,14 +19,12 @@ import binascii
 import hashlib
 import json
 import re
-import sqlite3
 import threading
 import uuid
-from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-from app import config
+from app import config, database
 from app.auth import context
 from app.vault.schemas import EvidenceIn
 
@@ -56,6 +54,11 @@ CREATE TABLE IF NOT EXISTS evidence (
     owner              TEXT                    -- account id; NULL for records sealed before accounts
 );
 CREATE INDEX IF NOT EXISTS evidence_capture ON evidence(capture_id);
+CREATE TABLE IF NOT EXISTS screenshots (
+    sha256 TEXT PRIMARY KEY,                   -- the file's SHA-256, also sealed in the evidence row
+    ext    TEXT NOT NULL,                      -- png | jpg
+    data   BLOB NOT NULL
+);
 """
 
 _HASHED_FIELDS = (
@@ -98,29 +101,16 @@ def sha256_file(path: Path) -> str | None:
 
 # ---------- storage ----------
 
-def _db_path() -> Path:
-    return config.DATA_DIR / "kavach.db"
+database.schema("vault", _SCHEMA, add_columns=[
+    ("evidence", "incident_date", "TEXT"),  # vaults created before this column existed
+    ("evidence", "owner", "TEXT"),  # vaults created before accounts (not hashed: old seals stay valid)
+])
+connect = database.connect
 
 
 def shots_dir() -> Path:
+    """Where screenshots were kept as files before they moved into the database (still read)."""
     return config.DATA_DIR / "screenshots"
-
-
-@contextmanager
-def connect():
-    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(_db_path(), isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    try:
-        conn.executescript(_SCHEMA)
-        cols = {r["name"] for r in conn.execute("PRAGMA table_info(evidence)")}
-        if "incident_date" not in cols:  # vaults created before this column existed
-            conn.execute("ALTER TABLE evidence ADD COLUMN incident_date TEXT")
-        if "owner" not in cols:  # vaults created before accounts (not hashed: old seals stay valid)
-            conn.execute("ALTER TABLE evidence ADD COLUMN owner TEXT")
-        yield conn
-    finally:
-        conn.close()
 
 
 def _now() -> str:
@@ -152,13 +142,12 @@ def save_capture(item: EvidenceIn) -> dict:
         "incident_date": item.incident_date.isoformat() if item.incident_date else None,
     }
 
-    # Decode and store screenshot files before touching the chain.
-    shots = []
-    shots_dir().mkdir(parents=True, exist_ok=True)
+    # Decode screenshots before touching the chain; their bytes are stored with the records.
+    shots, images = [], {}
     for s in item.screenshots:
         raw, ext = _decode_image(s.data_url)
         digest = hashlib.sha256(raw).hexdigest()
-        (shots_dir() / f"{digest}.{ext}").write_bytes(raw)
+        images[digest] = (ext, raw)
         shots.append((s.kind, digest))
 
     owner = context.current()
@@ -175,6 +164,11 @@ def save_capture(item: EvidenceIn) -> dict:
     with _lock, connect() as conn:
         conn.execute("BEGIN IMMEDIATE")
         try:
+            if conn.pg:  # one sealer at a time across server processes, so chains never fork
+                conn.execute("SELECT pg_advisory_xact_lock(7261)")
+            for digest, (ext, raw) in images.items():
+                conn.execute("INSERT INTO screenshots (sha256, ext, data) VALUES (?, ?, ?) ON CONFLICT (sha256) DO NOTHING",
+                             (digest, ext, raw))
             # Ids are global; the chain links to this account's own previous record.
             top = conn.execute("SELECT MAX(id) AS m FROM evidence").fetchone()["m"]
             next_id = (top or 0) + 1
@@ -204,7 +198,7 @@ def all_rows() -> list[dict]:
 
 def owns_screenshot(digest: str) -> bool:
     with connect() as conn:
-        return conn.execute("SELECT 1 FROM evidence WHERE screenshot_sha256=? AND owner IS ? LIMIT 1",
+        return conn.execute("SELECT 1 AS x FROM evidence WHERE screenshot_sha256=? AND owner IS ? LIMIT 1",
                             (digest, context.current())).fetchone() is not None
 
 
@@ -214,13 +208,18 @@ def claim_unowned(owner: str) -> None:
         conn.execute("UPDATE evidence SET owner=? WHERE owner IS NULL", (owner,))
 
 
-def screenshot_path(digest: str) -> Path | None:
-    if not re.fullmatch(r"[0-9a-f]{64}", digest):
+def screenshot(digest: str) -> tuple[bytes, str] | None:
+    """(image bytes, "png" | "jpg") for a sealed screenshot, or None."""
+    if not re.fullmatch(r"[0-9a-f]{64}", digest or ""):
         return None
-    for ext in ("png", "jpg"):
+    with connect() as conn:
+        r = conn.execute("SELECT ext, data FROM screenshots WHERE sha256=?", (digest,)).fetchone()
+    if r:
+        return bytes(r["data"]), r["ext"]
+    for ext in ("png", "jpg"):  # sealed before screenshots moved into the database
         p = shots_dir() / f"{digest}.{ext}"
         if p.exists():
-            return p
+            return p.read_bytes(), ext
     return None
 
 
@@ -239,8 +238,8 @@ def verify(rows: list[dict] | None = None) -> dict:
         elif record_hash(row) != row["hash"]:
             problem = "tampered"  # this record's content no longer matches its seal
         elif row["kind"] == "screenshot":
-            path = screenshot_path(row["screenshot_sha256"] or "")
-            if path is None or sha256_file(path) != row["screenshot_sha256"]:
+            shot = screenshot(row["screenshot_sha256"] or "")
+            if shot is None or hashlib.sha256(shot[0]).hexdigest() != row["screenshot_sha256"]:
                 problem = "file_changed"
         if problem == "broken_link" and results and first_break is None:
             # The previous record still matches its own (recomputed) hash, but not the
@@ -293,9 +292,12 @@ def clear() -> None:
     """Deletes this account's records and its screenshots. Her choice, e.g. after the case is closed."""
     with _lock, connect() as conn:
         conn.execute("DELETE FROM evidence WHERE owner IS ?", (context.current(),))
+        # The same image sealed by another account stays.
+        conn.execute("DELETE FROM screenshots WHERE sha256 NOT IN"
+                     " (SELECT screenshot_sha256 FROM evidence WHERE screenshot_sha256 IS NOT NULL)")
         still_used = {r[0] for r in conn.execute("SELECT screenshot_sha256 FROM evidence WHERE screenshot_sha256 IS NOT NULL")}
     for f in shots_dir().glob("*"):
-        if f.stem not in still_used:  # the same image sealed by another account stays
+        if f.stem not in still_used:
             f.unlink()
 
 

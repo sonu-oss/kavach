@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app import config
@@ -210,10 +210,11 @@ def evidence_report():
 
 @app.get("/evidence/screenshot/{digest}", dependencies=signed_in)
 def evidence_screenshot(digest: str):
-    path = store.screenshot_path(digest) if store.owns_screenshot(digest) else None
-    if path is None:
+    shot = store.screenshot(digest) if store.owns_screenshot(digest) else None
+    if shot is None:
         raise HTTPException(404, "screenshot not found")
-    return FileResponse(path)
+    data, ext = shot
+    return Response(data, media_type="image/png" if ext == "png" else "image/jpeg")
 
 
 @app.delete("/evidence", dependencies=signed_in)

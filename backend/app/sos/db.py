@@ -1,13 +1,11 @@
 """SQLite storage for SOS: her trusted contacts, registered responders, SOS alerts and deliveries.
 
-Lives in the same data/kavach.db file as the Evidence Vault, in separate tables.
+Lives in the same database as the Evidence Vault (Postgres or SQLite, see app/database.py), in separate tables.
 """
 
-import sqlite3
 import threading
-from contextlib import contextmanager
 
-from app import config
+from app import database
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS people (
@@ -65,34 +63,8 @@ CREATE TABLE IF NOT EXISTS alerts (
 
 lock = threading.RLock()
 
-
-@contextmanager
-def connect():
-    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(config.DATA_DIR / "kavach.db", isolation_level=None, timeout=10)
-    conn.row_factory = sqlite3.Row
-    try:
-        conn.executescript(SCHEMA)
-        cols = {r["name"] for r in conn.execute("PRAGMA table_info(sos)")}
-        if "has_location" not in cols:  # databases created before this column existed
-            conn.execute("ALTER TABLE sos ADD COLUMN has_location INTEGER NOT NULL DEFAULT 1")
-        if "owner" not in {r["name"] for r in conn.execute("PRAGMA table_info(people)")}:  # before accounts
-            conn.execute("ALTER TABLE people ADD COLUMN owner TEXT")
-        yield conn
-    finally:
-        conn.close()
-
-
-def rows(sql: str, *args) -> list[dict]:
-    with connect() as c:
-        return [dict(r) for r in c.execute(sql, args)]
-
-
-def one(sql: str, *args) -> dict | None:
-    r = rows(sql, *args)
-    return r[0] if r else None
-
-
-def run(sql: str, *args) -> None:
-    with connect() as c:
-        c.execute(sql, args)
+database.schema("sos", SCHEMA, add_columns=[
+    ("sos", "has_location", "INTEGER NOT NULL DEFAULT 1"),  # databases created before this column existed
+    ("people", "owner", "TEXT"),  # databases created before accounts
+])
+connect, rows, one, run = database.connect, database.rows, database.one, database.run
