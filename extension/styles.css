@@ -1,0 +1,175 @@
+/* Kavach In-Chat Safety Banner Styles */
+
+.kavach-shield-banner {
+  position: fixed !important;
+  top: 75px !important;
+  left: 55% !important;
+  transform: translateX(-50%) !important;
+  width: 90% !important;
+  max-width: 620px !important;
+  padding: 16px 20px !important;
+  background: #140d12 !important;
+  border: 2px solid #ef4444 !important;
+  border-radius: 12px !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  color: #fff !important;
+  font-size: 13.5px !important;
+  line-height: 1.45 !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(239, 68, 68, 0.3) !important;
+  z-index: 9999999 !important;
+  animation: kavachSlideDown 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  box-sizing: border-box !important;
+}
+
+@keyframes kavachSlideDown {
+  from { opacity: 0; transform: translate(-50%, -20px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.kavach-banner-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+}
+
+.kavach-threat-badge {
+  background: #ef4444 !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  padding: 4px 10px !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+
+.kavach-threat-warn {
+  background: #d97706 !important;
+  color: #fff !important;
+}
+
+.kavach-risk-score {
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  color: #fca5a5 !important;
+}
+
+.kavach-banner-body {
+  color: #f4f4f5 !important;
+  font-size: 13px !important;
+}
+
+.kavach-auto-dispatched-box {
+  background: rgba(239, 68, 68, 0.22) !important;
+  border: 1px solid rgba(239, 68, 68, 0.55) !important;
+  padding: 10px 14px !important;
+  border-radius: 8px !important;
+  margin-top: 8px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  color: #fca5a5 !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+  line-height: 1.45 !important;
+}
+
+.kavach-options-info {
+  background: rgba(99, 102, 241, 0.16) !important;
+  border: 1px solid rgba(129, 140, 248, 0.35) !important;
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  margin-top: 8px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #c7d2fe !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.kavach-banner-acts {
+  display: flex !important;
+  gap: 10px !important;
+  margin-top: 6px !important;
+  flex-wrap: wrap !important;
+}
+
+.kavach-btn {
+  background: #27272a !important;
+  color: #fff !important;
+  border: 1px solid #52525b !important;
+  border-radius: 7px !important;
+  padding: 7px 14px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.15s !important;
+  text-decoration: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.kavach-btn:hover {
+  background: #3f3f46 !important;
+  border-color: #71717a !important;
+}
+
+.kavach-btn-sos {
+  background: #10b981 !important;
+  border-color: #059669 !important;
+}
+
+.kavach-btn-sos-manual {
+  background: #dc2626 !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+.kavach-btn-sos-manual:hover {
+  background: #b91c1c !important;
+  border-color: #f87171 !important;
+  transform: translateY(-1px) !important;
+}
+
+.kavach-status-badge {
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 24px !important;
+  background: #0f172a !important;
+  border: 1.5px solid #334155 !important;
+  color: #38bdf8 !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  padding: 9px 16px !important;
+  border-radius: 30px !important;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4) !important;
+  z-index: 9999999 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  transition: transform 0.15s, border-color 0.15s !important;
+}
+
+.kavach-status-badge:hover {
+  transform: scale(1.04) !important;
+  border-color: #38bdf8 !important;
+}
+
+.kavach-status-dot {
+  width: 9px !important;
+  height: 9px !important;
+  border-radius: 50% !important;
+  background: #10b981 !important;
+  box-shadow: 0 0 8px #10b981 !important;
+}

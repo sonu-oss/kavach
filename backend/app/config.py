@@ -25,7 +25,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 # Local files: the SQLite database when DATABASE_URL is blank, and the embedding model cache.
 DATA_DIR = Path(os.getenv("KAVACH_DATA_DIR", str(BACKEND_DIR / "data")))
 # Enables the "simulate tampering" and "reset vault" endpoints for the live demo.
-DEMO_MODE = os.getenv("KAVACH_DEMO", "1").strip() == "1"
+DEMO_MODE = os.getenv("KAVACH_DEMO", "0").strip() == "1"
 
 # ---------- SOS alerts ----------
 # Telegram bot from @BotFather; contacts and responders tap Start on it once.
@@ -39,3 +39,16 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "").replace(" ", "").strip()
 PUBLIC_URL = os.getenv("PUBLIC_URL", "").strip().rstrip("/")
 # Responders within this distance of her are alerted.
 SOS_RADIUS_M = int(os.getenv("SOS_RADIUS_M", "3000"))
+
+# ---------- Google Cloud & Gemini AI ----------
+# Primary AI reasoning engine. Get key at https://aistudio.google.com/ or Google Cloud Vertex AI
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", os.getenv("GEMINI_API_KEY", "")).strip()
+GEMINI_API_KEY = GOOGLE_API_KEY
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-1.5-flash").strip()
+GEMINI_TIMEOUT = float(os.getenv("GEMINI_TIMEOUT", "15"))
+
+# Google Maps JavaScript API key (https://console.cloud.google.com/google/maps-apis)
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "").strip()
+# Google OAuth Client ID for Continue with Google (optional)
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()

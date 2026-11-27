@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Kavach Live Chat Shield",
+  "version": "1.0.0",
+  "description": "Real-time automated safety and harassment shield for WhatsApp Web and Telegram Web.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs",
+    "notifications",
+    "scripting",
+    "cookies"
+  ],
+  "host_permissions": [
+    "https://web.whatsapp.com/*",
+    "https://web.telegram.org/*",
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://web.whatsapp.com/*",
+        "https://web.telegram.org/*"
+      ],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Kavach Live Chat Shield"
+  }
+}
+

@@ -17,6 +17,7 @@ and callers fall back to their keyword paths.
 import json
 import logging
 from pathlib import Path
+import httpx
 
 from app import config, database
 
@@ -27,6 +28,30 @@ EMBED_MODEL = "BAAI/bge-small-en-v1.5"
 _embedder = None
 _failed = False
 _clients: dict[Path, object] = {}
+
+
+def _gemini_embed(texts: list[str]) -> list[list[float]] | None:
+    """Call Google Gemini embedding API with 384 output dimensions (matching BGE-small)."""
+    if not config.GEMINI_API_KEY:
+        return None
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents?key={config.GEMINI_API_KEY}"
+    requests = [
+        {
+            "model": "models/text-embedding-004",
+            "content": {"parts": [{"text": t[:2048]}]},
+            "outputDimensionality": 384,
+        }
+        for t in texts
+    ]
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.post(url, json={"requests": requests})
+            if resp.status_code == 200:
+                data = resp.json()
+                return [e["values"] for e in data.get("embeddings", [])]
+    except Exception as exc:
+        log.warning("Gemini batchEmbedContents failed, falling back to local embedder: %s", exc)
+    return None
 
 
 def embedder():
@@ -47,6 +72,8 @@ def embedder():
 
 
 def available() -> bool:
+    if config.GEMINI_API_KEY:
+        return True
     try:
         embedder()
         return True
@@ -55,10 +82,16 @@ def available() -> bool:
 
 
 def embed_docs(texts: list[str]) -> list[list[float]]:
+    g_res = _gemini_embed(texts)
+    if g_res and len(g_res) == len(texts):
+        return g_res
     return [list(map(float, v)) for v in embedder().embed(texts)]
 
 
 def embed_query(text: str) -> list[float]:
+    g_res = _gemini_embed([text])
+    if g_res and len(g_res) == 1:
+        return g_res[0]
     return list(map(float, next(iter(embedder().query_embed(text)))))
 
 

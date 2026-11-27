@@ -52,9 +52,23 @@
       const meta = document.getElementById("meta");
       const alertEl = document.getElementById("alert");
       const map = L.map("map", { zoomControl: true }).setView([20.6, 78.9], 4);
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19, attribution: "&copy; OpenStreetMap contributors",
+      let tileLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 20, attribution: "&copy; OpenStreetMap contributors",
       }).addTo(map);
+
+      // Automatically enable Google Maps when GOOGLE_MAPS_API_KEY is configured in backend/.env
+      (async () => {
+        try {
+          const cfg = await (await fetch("/maps/config")).json();
+          if (cfg.google_maps_api_key) {
+            map.removeLayer(tileLayer);
+            tileLayer = L.tileLayer(
+              `https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${encodeURIComponent(cfg.google_maps_api_key)}`,
+              { maxZoom: 20, attribution: "&copy; Google Maps" }
+            ).addTo(map);
+          }
+        } catch {}
+      })();
       let pin = null, ring = null, first = true;
 
       async function refresh() {

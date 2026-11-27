@@ -149,3 +149,73 @@ def test_first_account_keeps_data_saved_before_accounts():
     assert first.get("/sos/setup").json()["name"] == "Priya"
     second = client("meera")
     assert second.get("/evidence").json()["records"] == [] and second.get("/people").json()["people"] == []
+
+
+def test_email_login_and_full_profile():
+    c = client()
+    res = c.post("/auth/signup", json={
+        "username": "ananya",
+        "password": PW,
+        "full_name": "Ananya Sharma",
+        "email": "ananya@example.com",
+        "phone": "+91 9876543210",
+    })
+    assert res.status_code == 200
+    user = res.json()["user"]
+    assert user["full_name"] == "Ananya Sharma"
+    assert user["email"] == "ananya@example.com"
+
+    # Log in using email instead of username
+    c2 = client()
+    login_res = c2.post("/auth/login", json={"username": "ananya@example.com", "password": PW})
+    assert login_res.status_code == 200
+    me = c2.get("/auth/me").json()["user"]
+    assert me["username"] == "ananya"
+    assert me["email"] == "ananya@example.com"
+    assert me["phone"] == "+91 9876543210"
+
+
+def test_password_recovery_and_reset():
+    client("priya")
+    c = client()
+    # Forgot password
+    forgot = c.post("/auth/forgot-password", json={"email_or_username": "priya"}).json()
+    assert forgot["ok"] is True
+    token = forgot.get("reset_token")
+    assert token
+
+    # Reset password with invalid token
+    bad = c.post("/auth/reset-password", json={"token": "invalid-token", "new_password": "new password 123"})
+    assert bad.status_code == 400
+
+    # Reset with valid token
+    NEW_PW = "brand new secure passphrase"
+    ok = c.post("/auth/reset-password", json={"token": token, "new_password": NEW_PW})
+    assert ok.status_code == 200
+
+    # Old password no longer works
+    assert c.post("/auth/login", json={"username": "priya", "password": PW}).status_code == 401
+    # New password works
+    assert c.post("/auth/login", json={"username": "priya", "password": NEW_PW}).status_code == 200
+
+
+def test_app_passcode_and_account_deletion():
+    priya = client("priya")
+    # Setting invalid passcode
+    assert priya.post("/auth/passcode/set", json={"passcode": "abc"}).status_code == 400
+    assert priya.post("/auth/passcode/set", json={"passcode": "12"}).status_code == 400
+
+    # Setting valid 4-digit PIN
+    set_pin = priya.post("/auth/passcode/set", json={"passcode": "4826"})
+    assert set_pin.status_code == 200
+    assert priya.get("/auth/me").json()["user"]["has_passcode"] is True
+
+    # Verifying passcode
+    assert priya.post("/auth/passcode/verify", json={"passcode": "0000"}).status_code == 401
+    assert priya.post("/auth/passcode/verify", json={"passcode": "4826"}).status_code == 200
+
+    # Deleting account
+    del_res = priya.delete("/auth/me")
+    assert del_res.status_code == 200
+    assert priya.get("/auth/me").status_code == 401
+

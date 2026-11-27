@@ -24,6 +24,39 @@ CREATE TABLE IF NOT EXISTS people (
     created_at       TEXT NOT NULL,
     owner            TEXT                        -- contacts: the account they belong to (NULL: before accounts)
 );
+CREATE TABLE IF NOT EXISTS guardians (
+    id               TEXT PRIMARY KEY,
+    user_id          TEXT NOT NULL,              -- account this guardian belongs to
+    user_email       TEXT,                       -- user account email
+    name             TEXT NOT NULL,
+    relationship     TEXT NOT NULL DEFAULT 'Guardian',
+    phone            TEXT,
+    whatsapp         TEXT,
+    email            TEXT,
+    lat              REAL,
+    lng              REAL,
+    location_at      TEXT,
+    telegram_chat_id INTEGER,
+    link_code        TEXT NOT NULL UNIQUE,
+    created_at       TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS responders (
+    id               TEXT PRIMARY KEY,
+    user_id          TEXT,                       -- account if user registered themselves as responder
+    user_email       TEXT,                       -- user account email
+    name             TEXT NOT NULL,
+    phone            TEXT,
+    email            TEXT,
+    relationship     TEXT,                       -- organization / campus unit
+    lat              REAL,
+    lng              REAL,
+    location_at      TEXT,
+    verified         INTEGER NOT NULL DEFAULT 1,
+    opted_in         INTEGER NOT NULL DEFAULT 1,
+    telegram_chat_id INTEGER,
+    link_code        TEXT NOT NULL UNIQUE,
+    created_at       TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS profile (
     key   TEXT PRIMARY KEY,
     value TEXT
@@ -66,5 +99,15 @@ lock = threading.RLock()
 database.schema("sos", SCHEMA, add_columns=[
     ("sos", "has_location", "INTEGER NOT NULL DEFAULT 1"),  # databases created before this column existed
     ("people", "owner", "TEXT"),  # databases created before accounts
+    ("people", "relationship", "TEXT"),
+    ("people", "whatsapp", "TEXT"),
+    ("responders", "user_id", "TEXT"),
+    ("responders", "user_email", "TEXT"),
+    ("guardians", "whatsapp", "TEXT"),
+    ("guardians", "relationship", "TEXT DEFAULT 'Guardian'"),
+    ("guardians", "user_email", "TEXT"),
+    ("guardians", "lat", "REAL"),
+    ("guardians", "lng", "REAL"),
+    ("guardians", "location_at", "TEXT"),
 ])
 connect, rows, one, run = database.connect, database.rows, database.one, database.run

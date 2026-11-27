@@ -66,12 +66,54 @@
 
   // Log out: ends the session on the server, then back to the login screen.
   document.addEventListener("click", async (e) => {
-    if (!e.target.closest("#logout-btn")) return;
+    if (!e.target.closest("#logout-btn, #popover-logout-btn, #settings-logout-btn")) return;
     if (!(await show("Log out of Kavach on this device?", { ok: "Log out" }))) return;
     await nativeFetch("/auth/logout", { method: "POST", credentials: "same-origin" }).catch(() => {});
+    try {
+      ["kavach_token", "kavach.user", "kavach.sosSetup", "kavach.myDetails", "kavach.lastUser", "kavach_user_lat", "kavach_user_lng"].forEach((k) => localStorage.removeItem(k));
+    } catch {}
     location.replace("/login.html");
   });
 
   window.kavachConfirm = (message, opts) => show(message, opts);
   window.kavachAlert = (message) => show(message, { alertOnly: true });
+
+  window.kavachPromptPasscode = () => {
+    return new Promise((resolve) => {
+      const d = document.createElement("dialog");
+      d.className = "kdialog";
+      d.innerHTML = `
+        <h3 style="margin:0 0 8px; font-size:16px;">Owner Passcode Required</h3>
+        <p style="margin:0 0 14px; font-size:13px; color:var(--muted);">Enter your 4-digit PIN to access protected safety settings.</p>
+        <input type="password" maxlength="8" inputmode="numeric" style="width:100%; padding:10px; text-align:center; font-size:20px; letter-spacing:6px; margin-bottom:12px; background:rgba(255,255,255,.05); border:1px solid var(--border); border-radius:8px; color:#fff;" placeholder="••••" />
+        <div class="kdialog-err" style="color:#ff4d4f; font-size:12px; margin-bottom:10px; display:none;"></div>
+        <div class="kdialog-actions">
+          <button type="button" class="btn" data-cancel>Cancel</button>
+          <button type="button" class="btn btn--primary" data-ok>Unlock</button>
+        </div>`;
+      const input = d.querySelector("input");
+      const errEl = d.querySelector(".kdialog-err");
+      const close = (val) => { d.close(); d.remove(); resolve(val); };
+      d.querySelector("[data-cancel]").onclick = () => close(false);
+      d.querySelector("[data-ok]").onclick = async () => {
+        const pin = input.value.trim();
+        if (!pin) return;
+        try {
+          const res = await nativeFetch("/auth/passcode/verify", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            credentials: "same-origin", body: JSON.stringify({ passcode: pin })
+          });
+          if (!res.ok) throw new Error("Incorrect passcode");
+          close(true);
+        } catch (err) {
+          errEl.textContent = err.message;
+          errEl.style.display = "block";
+        }
+      };
+      input.onkeydown = (e) => { if (e.key === "Enter") d.querySelector("[data-ok]").click(); };
+      document.body.appendChild(d);
+      d.showModal();
+      input.focus();
+    });
+  };
 })();

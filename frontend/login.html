@@ -123,6 +123,21 @@
     .submit:not(:disabled):hover::after { animation: sheen .9s; }
     @keyframes sheen { to { transform: translateX(100%); } }
 
+    .divider {
+      display: flex; align-items: center; text-align: center; margin: 14px 0 10px; color: var(--muted);
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; border-bottom: 1px solid var(--line);
+    }
+    .divider span { padding: 0 10px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .12em; font-size: 10px; color: var(--muted); }
+    .google-btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;
+      padding: 13px 14px; border-radius: 12px; border: 1px solid var(--line);
+      background: rgba(255, 255, 255, .05); color: var(--text); font: 500 13.5px "DM Sans", sans-serif;
+      cursor: pointer; transition: background .2s, border-color .2s, transform .15s;
+    }
+    .google-btn:hover { background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .25); transform: translateY(-1px); }
+
     .trust { display: flex; gap: 10px; align-items: flex-start; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line);
       font-size: 12px; line-height: 1.5; color: var(--muted); }
     .trust svg { flex: none; margin-top: 2px; color: var(--blush); }
@@ -192,6 +207,18 @@
         <div class="hint signup-only" id="hint">At least 10 characters. A short sentence works well.</div>
         <div class="error" id="error" role="alert" aria-live="assertive"></div>
         <button class="submit" id="submit" type="submit">Log in</button>
+
+        <div class="divider"><span>or</span></div>
+
+        <button type="button" class="google-btn" id="google-btn">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path fill="#EA4335" d="M12 5c1.54 0 2.93.56 4.02 1.48l3.02-3.02C17.21 1.77 14.77 1 12 1 7.48 1 3.66 3.61 1.81 7.39l3.66 2.84C6.34 7.22 8.94 5 12 5z"/>
+            <path fill="#4285F4" d="M23.49 12.28c0-.79-.07-1.54-.19-2.28H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58l3.72 2.89c2.18-2.01 3.7-4.99 3.7-8.7z"/>
+            <path fill="#FBBC05" d="M5.47 14.77c-.23-.68-.36-1.41-.36-2.17s.13-1.49.36-2.17L1.81 7.59C1.04 9.13.6 10.86.6 12.68s.44 3.55 1.21 5.09l3.66-3z"/>
+            <path fill="#34A853" d="M12 23.4c3.24 0 5.95-1.08 7.93-2.91l-3.72-2.89c-1.07.72-2.45 1.16-4.21 1.16-3.06 0-5.66-2.22-6.53-5.23L1.81 16.37C3.66 20.15 7.48 23.4 12 23.4z"/>
+          </svg>
+          Continue with Google
+        </button>
       </form>
 
       <div class="trust">
@@ -282,6 +309,15 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Something went wrong. Try again.");
+        if (data.token) {
+          try { localStorage.setItem("kavach_token", data.token); } catch {}
+        }
+        if (data.user) {
+          try {
+            localStorage.setItem("kavach.user", JSON.stringify(data.user));
+            if (data.user.id) localStorage.setItem("kavach.lastUser", data.user.id);
+          } catch {}
+        }
         forgetOtherUser(data.user.id);
         enter();
       } catch (ex) {
@@ -291,11 +327,24 @@
       }
     });
 
+    $("#google-btn").addEventListener("click", async () => {
+      try {
+        const cfg = await (await fetch("/maps/config")).json();
+        if (cfg.google_client_id) {
+          location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(cfg.google_client_id)}&redirect_uri=${encodeURIComponent(location.origin + '/auth/google/callback')}&response_type=token&scope=email%20profile`;
+        } else {
+          showError("Google Sign-In: Add GOOGLE_CLIENT_ID in backend/.env to connect your Google Cloud OAuth app.");
+        }
+      } catch (err) {
+        showError("Could not connect to Google authentication.");
+      }
+    });
+
     // Details typed on this device (complaint name/address, SOS caller) belong to whoever used it last.
     function forgetOtherUser(id) {
       try {
         if (localStorage.getItem("kavach.lastUser") !== id) {
-          ["kavach.myDetails", "kavach.sosSettings"].forEach((k) => localStorage.removeItem(k));
+          ["kavach.myDetails", "kavach.sosSettings", "kavach.sosSetup"].forEach((k) => localStorage.removeItem(k));
         }
         localStorage.setItem("kavach.lastUser", id);
       } catch { /* storage blocked: nothing kept to forget */ }

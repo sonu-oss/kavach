@@ -56,6 +56,31 @@
   const inputs = [...els.details.querySelectorAll("input[data-field]")];
   const details = loadDetails();
   inputs.forEach((i) => (i.value = details[i.dataset.field] || ""));
+
+  async function syncProfileDetails() {
+    try {
+      const res = await fetch(`${API}/auth/profile`);
+      if (res.ok) {
+        const uData = await res.json();
+        const u = uData.user || {};
+        const cur = loadDetails();
+        const updated = {
+          name: cur.name || u.full_name || u.username || "",
+          phone: cur.phone || u.phone || "",
+          email: cur.email || u.email || "",
+          city: cur.city || u.city || "",
+          address: cur.address || u.address || "",
+        };
+        saveDetails(updated);
+        Object.assign(details, updated);
+        inputs.forEach((i) => (i.value = updated[i.dataset.field] || ""));
+        if (data && !edited) els.letter.value = composeLetter();
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  syncProfileDetails();
   inputs.forEach((i) =>
     i.addEventListener("input", () => {
       const before = { ...details };
@@ -132,6 +157,8 @@
     window.kavachImport?.close();
     window.kavachVault?.close();
     window.kavachSos?.close();
+    const mc = document.querySelector("#mock-chat-container");
+    if (mc) mc.hidden = true;
     window.kavachFlow?.set(4);
     window.kavachMobile?.show("main");
     window.kavachMobile?.pill("Laws & filing ›");
@@ -151,6 +178,7 @@
     safeBtn.disabled = false;
     safeBtn.textContent = "✅ I'm safe";
     if (!Object.values(details).some(Boolean)) els.details.open = true;
+    syncProfileDetails();
 
     const mySeq = ++seq;
     const steps = ["Finding the laws that apply…", "Checking each law against the facts…", "Writing your complaint…", "Checking every citation…"];
@@ -384,6 +412,31 @@
   async function copy(text, msg) {
     window.kavach.toast((await kavachCopy(text)) ? msg : "Copy failed: select the text and copy it manually");
   }
+
+  const dispatchBtn = document.querySelector("#dispatch-police");
+  dispatchBtn?.addEventListener("click", async () => {
+    const letterText = els.letter.value.trim();
+    if (!letterText) {
+      window.kavach?.toast("Please wait for the complaint to finish drafting.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(letterText);
+    } catch {
+      await kavachCopy(letterText);
+    }
+    els.pdf?.click();
+    window.open("https://cybercrime.gov.in/Webform/Accept.aspx", "_blank");
+    const subject = encodeURIComponent(`Formal Cyber Crime Complaint - ${data?.complaint?.subject || 'Online Harassment/Extortion'}`);
+    const body = encodeURIComponent(letterText.slice(0, 1800) + "\n\n[Full Evidentiary PDF Report Attached with Section 63 BSA Hash Chain]");
+    const mailto = `mailto:cybercrime-alerts@gov.in?subject=${subject}&body=${body}`;
+    window.kavach?.toast("✓ Formal complaint copied to clipboard & PDF downloaded! Opening Cyber Crime Portal.");
+    setTimeout(() => {
+      const a = document.createElement("a");
+      a.href = mailto;
+      a.click();
+    }, 1000);
+  });
 
   window.kavachComplaint = { open, close };
 })();

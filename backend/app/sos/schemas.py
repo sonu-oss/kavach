@@ -23,16 +23,20 @@ class RespondIn(BaseModel):
 class PersonIn(BaseModel):
     kind: Literal["contact", "responder"]
     name: str = Field(min_length=1, max_length=60)
-    phone: str = Field(default="", max_length=20)
+    phone: str = Field(default="", max_length=30)
+    whatsapp: str = Field(default="", max_length=30)
     email: str = Field(default="", max_length=120)
+    relationship: str = Field(default="Guardian", max_length=60)
     lat: float | None = None
     lng: float | None = None
 
 
 class PersonPatch(BaseModel):
     name: str | None = Field(default=None, max_length=60)
-    phone: str | None = Field(default=None, max_length=20)
+    phone: str | None = Field(default=None, max_length=30)
+    whatsapp: str | None = Field(default=None, max_length=30)
     email: str | None = Field(default=None, max_length=120)
+    relationship: str | None = Field(default=None, max_length=60)
     opted_in: bool | None = None
     lat: float | None = None
     lng: float | None = None

@@ -38,6 +38,7 @@ class ThreatResult(BaseModel):
     severity: Severity
     reason: str = Field(min_length=1, max_length=600)
     flagged_message_ids: list[str]
+    guardian_advice: str | None = None
 
 
 class AnalyzeResponse(ThreatResult):
@@ -45,3 +46,13 @@ class AnalyzeResponse(ThreatResult):
     source: Literal["prefilter", "llm", "keyword_fallback"]
     pii_masked: int
     model: str | None = None
+
+
+class AutoAlertRequest(BaseModel):
+    category: str
+    risk_score: int
+    reason: str
+    sender: str
+    guardian_advice: str | None = None
+    lat: float | None = None
+    lng: float | None = None

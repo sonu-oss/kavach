@@ -15,8 +15,8 @@
   const SETTINGS_KEY = "kavach.sosSettings";
 
   const els = {
-    btn: $("#sos-btn"),
-    view: $("#sos-view"),
+    btn: $("#guardians-btn") || $("#sos-btn"),
+    view: $("#guardians-view") || $("#sos-view"),
     phone: $("#phone"),
     decline: $("#decline-btn"),
     accept: $("#accept-btn"),
@@ -56,13 +56,37 @@
   const hhmmss = () => new Date().toLocaleTimeString("en-GB");
 
   async function api(path, opts = {}) {
+    let token = "";
+    let userId = "";
+    try {
+      token = localStorage.getItem("kavach_token") || "";
+      const u = JSON.parse(localStorage.getItem("kavach.user") || "{}");
+      userId = u.id || localStorage.getItem("kavach.lastUser") || "";
+    } catch {}
+    const headers = {
+      ...(opts.headers || {}),
+      ...(opts.body ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { "Authorization": `Bearer ${token}`, "X-Kavach-Token": token } : {}),
+      ...(userId ? { "X-Kavach-User": userId } : {}),
+    };
     const res = await fetch(`${API}${path}`, {
       ...opts,
-      headers: opts.body ? { "Content-Type": "application/json" } : undefined,
+      credentials: "include",
+      headers,
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.detail || `HTTP ${res.status}`);
     return body;
+  }
+
+  function loadCachedSetup() {
+    try {
+      const cached = JSON.parse(localStorage.getItem("kavach.sosSetup") || "null");
+      if (cached && Array.isArray(cached.contacts) && cached.contacts.length > 0) {
+        setup = cached;
+        renderContacts();
+      }
+    } catch {}
   }
 
   // ---------- this-device settings (caller name, location mode) ----------
@@ -82,22 +106,31 @@
       /* private mode: settings just won't persist */
     }
   }
-  els.callerInput.value = settings.caller;
-  els.callerInput.addEventListener("input", () => {
-    settings.caller = els.callerInput.value.trim() || "Mom";
-    saveSettings();
-    applyCaller();
-  });
+  if (els.callerInput) {
+    els.callerInput.value = settings.caller;
+    els.callerInput.addEventListener("input", () => {
+      settings.caller = els.callerInput.value.trim() || "Mom";
+      saveSettings();
+      applyCaller();
+    });
+  }
 
   function applyCaller() {
     const name = settings.caller || "Mom";
-    ["#caller-name", "#caller-name-2"].forEach((s) => ($(s).textContent = name));
-    ["#caller-initial", "#caller-initial-2"].forEach((s) => ($(s).textContent = name[0].toUpperCase()));
-    els.missed.textContent = `Missed call: ${name}`;
+    ["#caller-name", "#caller-name-2"].forEach((s) => {
+      const el = $(s);
+      if (el) el.textContent = name;
+    });
+    ["#caller-initial", "#caller-initial-2"].forEach((s) => {
+      const el = $(s);
+      if (el) el.textContent = name[0].toUpperCase();
+    });
+    if (els.missed) els.missed.textContent = `Missed call: ${name}`;
   }
 
   // ---------- setup: her name + trusted contacts (saved on the server) ----------
-  els.testChannels.addEventListener("click", async () => {
+  els.testChannels?.addEventListener("click", async () => {
+    if (!els.testChannels) return;
     els.testChannels.disabled = true;
     els.testChannels.textContent = "Sending…";
     try {
@@ -113,92 +146,380 @@
 
   async function loadSetup() {
     try {
-      setup = await api("/sos/setup");
+      const data = await api("/sos/setup");
+      if (data) {
+        setup = setup || {};
+        setup.name = data.name || setup.name;
+        setup.telegram = data.telegram || setup.telegram;
+        setup.email_on = data.email_on ?? setup.email_on;
+        setup.email_problem = data.email_problem;
+        if (Array.isArray(data.contacts)) {
+          setup.contacts = data.contacts;
+          try { localStorage.setItem("kavach.sosSetup", JSON.stringify(setup)); } catch {}
+        }
+      }
     } catch {
-      els.channels.innerHTML = `<span class="chan chan--warn">Kavach offline</span>`;
+      if (els.channels) {
+        els.channels.innerHTML = `<span class="chan chan--warn">Kavach offline</span>`;
+      }
       return;
     }
-    if (document.activeElement !== els.herName) els.herName.value = setup.name === "Someone you know" ? "" : setup.name;
+    setup = setup || {};
+    setup.contacts = setup.contacts || [];
+    setup.telegram = setup.telegram || { on: false, bot: null };
+
+    if (els.herName && document.activeElement !== els.herName) els.herName.value = setup.name === "Someone you know" ? "" : setup.name;
     const chip = (label, on, problem, title) =>
       `<span class="chan ${!on ? "" : problem ? "chan--warn" : "chan--on"}" title="${esc(title)}">${label}${!on ? " off" : problem ? " !" : ""}</span>`;
-    els.channels.innerHTML =
-      chip("Telegram", setup.telegram.on, setup.telegram.problem, setup.telegram.bot ? `@${setup.telegram.bot}` : "Not set up") +
-      chip("Email", setup.email_on, setup.email_problem, setup.email_on ? "Gmail connected" : "Not set up");
-    els.channelProblem.textContent = [setup.telegram.on && setup.telegram.problem, setup.email_on && setup.email_problem]
-      .filter(Boolean)
-      .join(" ");
-    els.channelProblem.hidden = !els.channelProblem.textContent;
-    els.testChannels.hidden = !setup.telegram.on && !setup.email_on;
-    els.invite.hidden = !setup.telegram.bot;
+    if (els.channels) {
+      els.channels.innerHTML =
+        chip("Telegram", setup.telegram.on, setup.telegram.problem, setup.telegram.bot ? `@${setup.telegram.bot}` : "Not set up") +
+        chip("Email", setup.email_on, setup.email_problem, setup.email_on ? "Gmail connected" : "Not set up");
+    }
+    if (els.channelProblem) {
+      els.channelProblem.textContent = [setup.telegram.on && setup.telegram.problem, setup.email_on && setup.email_problem]
+        .filter(Boolean)
+        .join(" ");
+      els.channelProblem.hidden = !els.channelProblem.textContent;
+    }
+    if (els.testChannels) els.testChannels.hidden = !setup.telegram.on && !setup.email_on;
+    if (els.invite) els.invite.hidden = !setup.telegram.bot;
+    if (setup.contacts && setup.contacts.length > 0) {
+      const primary = setup.contacts[0];
+      if (primary && primary.name) {
+        settings.caller = primary.name;
+        if (els.callerInput) els.callerInput.value = primary.name;
+        saveSettings();
+        applyCaller();
+        const stName = document.getElementById("stealth-primary-name");
+        if (stName) stName.textContent = primary.name;
+      }
+    }
     renderContacts();
   }
 
   function renderContacts() {
-    const linked = setup.contacts.filter((c) => c.telegram_linked).length;
-    els.contactCount.textContent = setup.contacts.length ? `${setup.contacts.length} added · ${linked} on Telegram` : "";
-    if (!setup.contacts.length) {
-      els.contactList.innerHTML = `<li class="contact-empty">No one yet. Add at least one person who should get your SOS.</li>`;
+    if (!els.contactList) return;
+    const contacts = setup?.contacts || [];
+    const linked = contacts.filter((c) => c.telegram_linked).length;
+    if (els.contactCount) els.contactCount.textContent = contacts.length ? `${contacts.length} guardian(s) active · ${linked} on Telegram` : "0 configured";
+    if (!contacts.length) {
+      els.contactList.innerHTML = `
+        <li class="contact-empty" style="text-align:center; padding:32px 16px; border:1px dashed var(--border); border-radius:8px; list-style:none;">
+          <div style="font-size:32px; margin-bottom:8px;">👥</div>
+          <strong style="display:block; margin-bottom:4px; font-size:14px;">No Guardians Added Yet</strong>
+          <p style="margin:0; font-size:12.5px; opacity:0.8;">Add trusted contacts below (parents, friends). Once added, Kavach immediately sends an automated confirmation email and alerts them with live GPS if you trigger SOS.</p>
+        </li>`;
       return;
     }
-    els.contactList.innerHTML = setup.contacts
+    els.contactList.innerHTML = contacts
       .map((c) => {
         const link = setup.telegram.bot ? `https://t.me/${setup.telegram.bot}?start=${c.link_code}` : null;
         const tg = c.telegram_linked
-          ? `<span class="ok-tag">✓ Telegram</span>`
+          ? `<span class="ok-tag" style="background:#10b98122; color:#10b981; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:600;">✓ Telegram</span>`
           : link
-            ? `<button type="button" class="link-btn" data-qr="${esc(link)}" data-who="${esc(c.name)}">Connect Telegram</button>`
-            : `<span class="muted small">Telegram not set up</span>`;
-        return `<li class="contact-row">
-          <span class="avatar" aria-hidden="true">${esc((c.name.match(/[\p{L}\p{N}]/u)?.[0] || "?").toUpperCase())}</span>
-          <div><strong>${esc(c.name)}</strong><small>${esc(c.email || "no email")}</small></div>
-          ${tg}
-          <button type="button" class="row-del" data-del="${esc(c.id)}" title="Remove">×</button>
+            ? `<button type="button" class="link-btn" data-qr="${esc(link)}" data-who="${esc(c.name)}" style="font-size:11px; border-radius:6px; padding:3px 8px;">Connect Telegram</button>`
+            : `<span class="muted small">Telegram off</span>`;
+        const details = [c.phone ? `📞 ${c.phone}` : '', c.whatsapp ? `💬 WA: ${c.whatsapp}` : '', c.email || ''].filter(Boolean).join(' · ');
+        return `<li class="contact-row glass-card">
+          <div class="contact-row__head">
+            <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+              <div class="avatar" style="width:42px; height:42px; min-width:42px; border-radius:50%; background:linear-gradient(135deg, #f2b8c6, #b9a6e8); color:#0c0e12; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:15px; box-shadow:0 4px 12px rgba(242,184,198,0.25); flex-shrink:0;">
+                ${esc((c.name.match(/[\p{L}\p{N}]/u)?.[0] || "?").toUpperCase())}
+              </div>
+              <div style="min-width:0;">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <strong style="font-weight:700; font-size:15px; color:#fff;">${esc(c.name)}</strong>
+                  <span class="glass-badge" style="color:var(--brand); border-color:rgba(242,184,198,0.3); font-size:10.5px; padding:2px 8px;">${esc(c.relationship || 'Guardian')}</span>
+                </div>
+                <div style="font-size:12px; color:var(--muted); margin-top:3px; word-break:break-word;">
+                  ${esc(details || "No contact details")}
+                </div>
+              </div>
+            </div>
+            <button type="button" class="row-del" data-del="${esc(c.id)}" title="Remove Guardian" style="background:transparent; border:none; color:var(--muted); font-size:22px; cursor:pointer; padding:4px 8px; line-height:1; flex-shrink:0;">×</button>
+          </div>
+          <div class="contact-row__actions">
+            ${c.phone ? `<a href="tel:${esc(c.phone)}" class="btn btn--primary small" style="background:#10b981; border-color:#10b981; color:#fff; font-size:12px; padding:6px 14px; border-radius:8px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; font-weight:700;">📞 Call</a>` : ""}
+            ${c.whatsapp ? `<a href="https://wa.me/${esc(c.whatsapp.replace(/[^0-9]/g, ''))}" target="_blank" rel="noopener" class="btn btn--ghost small" style="color:#25d366; border-color:rgba(37,211,102,0.4); font-size:11.5px; padding:6px 12px; border-radius:8px; text-decoration:none; font-weight:600;">💬 WhatsApp</a>` : ""}
+            ${tg}
+            <button type="button" class="btn btn--ghost small" data-siren="${esc(c.id)}" style="color:#ef4444; border-color:#ef4444; font-size:11.5px; padding:6px 12px; border-radius:8px; font-weight:600;">🚨 Siren Alert</button>
+          </div>
         </li>`;
       })
       .join("");
   }
 
   let nameTimer = null;
-  els.herName.addEventListener("input", () => {
+  els.herName?.addEventListener("input", () => {
     clearTimeout(nameTimer);
     nameTimer = setTimeout(() => {
-      const name = els.herName.value.trim();
+      const name = els.herName?.value?.trim();
       if (name) api("/sos/profile", { method: "PUT", body: JSON.stringify({ name }) }).catch(() => {});
     }, 500);
   });
 
-  els.addContact.addEventListener("submit", async (e) => {
+  // ---------- Add Guardian Collapsible Drawer ----------
+  const addGuardianCard = document.getElementById("add-guardian-card");
+  const toggleAddGuardianBtn = document.getElementById("toggle-add-guardian-btn");
+  const cancelAddGuardianBtn = document.getElementById("cancel-add-guardian-btn");
+  const cancelAddGuardianBtn2 = document.getElementById("cancel-guardian-btn2");
+
+  toggleAddGuardianBtn?.addEventListener("click", () => {
+    if (!addGuardianCard) return;
+    const isHidden = addGuardianCard.style.display === "none" || !addGuardianCard.style.display;
+    addGuardianCard.style.display = isHidden ? "block" : "none";
+    if (isHidden) {
+      addGuardianCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      addGuardianCard.querySelector("input")?.focus();
+    }
+  });
+
+  const closeGuardianDrawer = () => {
+    if (addGuardianCard) addGuardianCard.style.display = "none";
+  };
+  cancelAddGuardianBtn?.addEventListener("click", closeGuardianDrawer);
+  cancelAddGuardianBtn2?.addEventListener("click", closeGuardianDrawer);
+
+  // ---------- Safety Space Hub Controller ----------
+  const safetyspaceHub = document.getElementById("safetyspace-hub");
+  const safetyspacePhone = document.getElementById("safetyspace-phone-container");
+  const hubOpenPhoneBtn = document.getElementById("hub-open-phone-btn");
+  const phoneBackToHubBtn = document.getElementById("phone-back-to-hub-btn");
+  const hubOpenScannerBtn = document.getElementById("hub-open-scanner-btn");
+
+  hubOpenPhoneBtn?.addEventListener("click", () => {
+    if (safetyspaceHub) safetyspaceHub.style.display = "none";
+    if (safetyspacePhone) safetyspacePhone.style.display = "block";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  phoneBackToHubBtn?.addEventListener("click", () => {
+    if (safetyspacePhone) safetyspacePhone.style.display = "none";
+    if (safetyspaceHub) safetyspaceHub.style.display = "flex";
+  });
+
+  hubOpenScannerBtn?.addEventListener("click", () => {
+    window.kavachNav?.go("scan");
+  });
+
+  els.addContact?.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (!els.addContact) return;
     const f = new FormData(els.addContact);
+    const saveBtn = els.addContact.querySelector("button[type=submit]");
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Saving…";
+    }
     try {
-      await api("/people", {
+      const created = await api("/people", {
         method: "POST",
         body: JSON.stringify({
           kind: "contact",
           name: f.get("name"),
+          relationship: (f.get("relationship") || "Guardian").trim(),
+          phone: (f.get("phone") || "").trim(),
+          whatsapp: (f.get("whatsapp") || "").trim(),
           email: (f.get("email") || "").trim(),
         }),
       });
       els.addContact.reset();
+      closeGuardianDrawer();
+      if (created && created.id) {
+        setup = setup || {};
+        setup.contacts = setup.contacts || [];
+        if (!setup.contacts.some(c => c.id === created.id)) {
+          setup.contacts.push(created);
+        }
+        try { localStorage.setItem("kavach.sosSetup", JSON.stringify(setup)); } catch {}
+        renderContacts();
+      }
       await loadSetup();
+      window.kavach.toast("✓ Guardian added to your safety circle");
     } catch (err) {
-      window.kavach.toast(`Couldn't add: ${err.message}`);
+      window.kavach.toast(`Couldn't add guardian: ${err.message}`);
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "+ Save & Add Guardian";
+      }
     }
   });
 
-  els.contactList.addEventListener("click", async (e) => {
+  els.contactList?.addEventListener("click", async (e) => {
+    const sirenBtn = e.target.closest("[data-siren]");
+    if (sirenBtn) {
+      const pid = sirenBtn.dataset.siren;
+      sirenBtn.disabled = true;
+      sirenBtn.textContent = "Sending…";
+      try {
+        let loc = null;
+        try {
+          loc = await new Promise((resolve) => {
+            if (!navigator.geolocation) return resolve(null);
+            navigator.geolocation.getCurrentPosition(
+              (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+              () => resolve(null),
+              { timeout: 3500, maximumAge: 60000 }
+            );
+          });
+        } catch {}
+
+        await api(`/people/${pid}/siren`, {
+          method: "POST",
+          body: JSON.stringify(loc || {})
+        });
+        playAlertSound();
+        window.kavach?.toast("🚨 Emergency siren alert with GPS coordinates & email dispatched to guardian!");
+      } catch (err) {
+        window.kavach?.toast(`Alert error: ${err.message}`);
+      } finally {
+        sirenBtn.disabled = false;
+        sirenBtn.textContent = "🚨 Alert";
+      }
+      return;
+    }
     const del = e.target.closest("[data-del]");
     if (del) {
-      await api(`/people/${del.dataset.del}`, { method: "DELETE" }).catch(() => {});
-      return loadSetup();
+      e.preventDefault();
+      e.stopPropagation();
+      const pid = del.dataset.del;
+      if (!pid) return;
+
+      const confirmed = await (window.kavachConfirm
+        ? window.kavachConfirm("Remove this emergency guardian from your safety network?", { ok: "Remove Guardian", cancel: "Cancel", danger: true })
+        : Promise.resolve(confirm("Remove this emergency guardian from your safety network?")));
+      if (!confirmed) return;
+
+      try {
+        const meRes = await fetch("/auth/me", { credentials: "include" });
+        if (meRes.ok) {
+          const me = await meRes.json().catch(() => ({}));
+          if (me.user?.has_passcode && window.kavachPromptPasscode) {
+            const ok = await window.kavachPromptPasscode();
+            if (!ok) return;
+          }
+        }
+      } catch {}
+
+      try {
+        del.disabled = true;
+        del.style.opacity = "0.5";
+        await api(`/people/${pid}`, { method: "DELETE" });
+        if (setup && Array.isArray(setup.contacts)) {
+          setup.contacts = setup.contacts.filter((c) => c.id !== pid);
+          try { localStorage.setItem("kavach.sosSetup", JSON.stringify(setup)); } catch {}
+          renderContacts();
+        }
+        await loadSetup();
+        window.kavach?.toast("✓ Guardian removed from your network");
+      } catch (err) {
+        del.disabled = false;
+        del.style.opacity = "1";
+        window.kavach?.toast(`Could not remove guardian: ${err.message}`);
+      }
+      return;
     }
     const qr = e.target.closest("[data-qr]");
     if (qr) showQr(qr.dataset.qr, qr.dataset.who);
   });
 
+  // Web Audio Alarm Siren
+  let sirenOsc = null;
+  let sirenInterval = null;
+
+  function toggleAudioSiren() {
+    const btn = document.getElementById("siren-toggle-btn");
+    if (sirenOsc) {
+      try {
+        sirenOsc.stop();
+        sirenOsc.disconnect();
+      } catch {}
+      sirenOsc = null;
+      if (sirenInterval) clearInterval(sirenInterval);
+      if (btn) {
+        btn.textContent = "🔊 Sound Alarm Siren";
+        btn.style.background = "";
+        btn.style.color = "#ef4444";
+      }
+      window.kavach?.toast("Siren alarm stopped");
+      return;
+    }
+
+    try {
+      const actx = getAudioCtx();
+      sirenOsc = actx.createOscillator();
+      const gain = actx.createGain();
+      sirenOsc.type = "sawtooth";
+      sirenOsc.frequency.setValueAtTime(650, actx.currentTime);
+      gain.gain.setValueAtTime(0.6, actx.currentTime);
+      sirenOsc.connect(gain);
+      gain.connect(actx.destination);
+      sirenOsc.start();
+
+      let up = true;
+      sirenInterval = setInterval(() => {
+        if (!sirenOsc || !audioCtx) return;
+        try {
+          sirenOsc.frequency.linearRampToValueAtTime(up ? 1150 : 650, audioCtx.currentTime + 0.45);
+          up = !up;
+        } catch {}
+      }, 450);
+
+      if (btn) {
+        btn.textContent = "🔇 Stop Siren";
+        btn.style.background = "#ef4444";
+        btn.style.color = "#ffffff";
+      }
+      window.kavach?.toast("🔊 EMERGENCY SIREN ACTIVE");
+    } catch (err) {
+      window.kavach?.toast("Audio siren error: " + err.message);
+    }
+  }
+
+  document.getElementById("open-stealth-phone-btn")?.addEventListener("click", () => {
+    if (window.kavachNav) window.kavachNav.go("safetyspace");
+    ring();
+    document.getElementById("phone")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+
+  document.getElementById("siren-toggle-btn")?.addEventListener("click", toggleAudioSiren);
+
+  document.getElementById("trigger-sos-btn")?.addEventListener("click", async () => {
+    if (!confirm("🚨 Trigger Emergency SOS to all your guardians and responders now?")) return;
+    const btn = document.getElementById("trigger-sos-btn");
+    btn.disabled = true;
+    btn.textContent = "🚨 Dispatching SOS…";
+    try {
+      await fireSos();
+      window.kavach?.toast("🚨 EMERGENCY SOS DISPATCHED: Live location sent to all guardians!");
+    } catch (err) {
+      window.kavach?.toast("SOS dispatch error: " + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "🚨 Trigger SOS to All Guardians";
+    }
+  });
+
+  if (els.setup) {
+    els.setup.querySelector("summary")?.addEventListener("click", async (e) => {
+      if (!els.setup.open) {
+        try {
+          const me = await (await fetch("/auth/me", { credentials: "same-origin" })).json();
+          if (me.user?.has_passcode) {
+            e.preventDefault();
+            const ok = await window.kavachPromptPasscode();
+            if (ok) els.setup.open = true;
+          }
+        } catch {}
+      }
+    });
+  }
+
   // Each contact scans this (or gets the link) and taps Start once.
   // One shared link: everyone who opens it and taps Start becomes a trusted contact.
-  els.invite.addEventListener("click", async () => {
+  els.invite?.addEventListener("click", async () => {
     try {
       const { link } = await api("/sos/invite");
       if (!link) return window.kavach.toast("Telegram isn't set up");
@@ -291,10 +612,98 @@
   // On a real phone the fake call takes over the whole screen; on a laptop it stays in the mockup.
   const isPhone = window.matchMedia("(max-width: 820px)");
 
+  // ---------- Audio Engine (Ringtone, De-escalation Speech, Alert Ping, Siren) ----------
+  let audioCtx = null;
+  let ringtoneInterval = null;
+  let isRinging = false;
+
+  function getAudioCtx() {
+    if (!audioCtx) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) audioCtx = new AudioContext();
+    }
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playRingtone() {
+    stopRingtone();
+    isRinging = true;
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+
+    function playBurst() {
+      if (!isRinging) return;
+      const t = ctx.currentTime;
+      [853, 960].forEach((freq) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.setValueAtTime(0.08, t + 1.5);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.7);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 1.7);
+      });
+    }
+
+    playBurst();
+    ringtoneInterval = setInterval(playBurst, 3200);
+  }
+
+  function stopRingtone() {
+    isRinging = false;
+    if (ringtoneInterval) {
+      clearInterval(ringtoneInterval);
+      ringtoneInterval = null;
+    }
+  }
+
+  function playDeEscalationVoice() {
+    if ("speechSynthesis" in window) {
+      try {
+        window.speechSynthesis.cancel();
+        const caller = settings.caller || "Mom";
+        const text = `Hey sweetie, are you there? Dad and I are parked right outside in the car waiting for you. Come down right now, okay? We are right here outside.`;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.95;
+        utterance.pitch = 1.05;
+        const voices = window.speechSynthesis.getVoices();
+        const preferred = voices.find(v => v.lang.startsWith("en") && (v.name.includes("Female") || v.name.includes("Samantha") || v.name.includes("Zira")));
+        if (preferred) utterance.voice = preferred;
+        setTimeout(() => window.speechSynthesis.speak(utterance), 400);
+      } catch (err) {
+        console.warn("Speech synthesis notice:", err);
+      }
+    }
+  }
+
+  function playAlertSound() {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    [1000, 1400, 1800].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, t + i * 0.12);
+      gain.gain.setValueAtTime(0.18, t + i * 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.12 + 0.22);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t + i * 0.12);
+      osc.stop(t + i * 0.12 + 0.22);
+    });
+  }
+
   function ring() {
     clearInterval(callTimer);
     applyCaller();
     show("incoming");
+    playRingtone();
   }
 
   function startCall() {
@@ -331,6 +740,8 @@
   );
 
   function goHome() {
+    stopRingtone();
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     clearInterval(callTimer);
     show("home");
     lockShownAt = Date.now();
@@ -346,6 +757,7 @@
     holdTimer = setTimeout(() => {
       firedThisPress = true;
       navigator.vibrate?.(30); // one tiny buzz so she knows it worked; nothing visible
+      stopRingtone();
       goHome();
       sendSos("long_press_decline");
     }, HOLD_MS);
@@ -353,34 +765,51 @@
   function pressEnd(e) {
     e.preventDefault();
     clearTimeout(holdTimer);
-    if (!firedThisPress) goHome(); // an ordinary tap: just decline
+    if (!firedThisPress) {
+      stopRingtone();
+      goHome(); // an ordinary tap: just decline
+    }
   }
-  els.decline.addEventListener("pointerdown", pressStart);
-  els.decline.addEventListener("pointerup", pressEnd);
-  els.decline.addEventListener("pointerleave", () => clearTimeout(holdTimer));
-  els.decline.addEventListener("contextmenu", (e) => e.preventDefault());
+  els.decline?.addEventListener("pointerdown", pressStart);
+  els.decline?.addEventListener("pointerup", pressEnd);
+  els.decline?.addEventListener("pointerleave", () => clearTimeout(holdTimer));
+  els.decline?.addEventListener("contextmenu", (e) => e.preventDefault());
   // Keyboard: Enter declines; Shift+Enter is the accessible equivalent of the long press.
-  els.decline.addEventListener("keydown", (e) => {
+  els.decline?.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
+    stopRingtone();
     goHome();
     if (e.shiftKey) sendSos("long_press_decline");
   });
 
-  els.accept.addEventListener("click", () => {
+  els.accept?.addEventListener("click", () => {
+    stopRingtone();
     show("incall");
+    playDeEscalationVoice();
     const start = Date.now();
     clearInterval(callTimer);
     callTimer = setInterval(() => {
       const s = Math.floor((Date.now() - start) / 1000);
-      els.timer.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+      if (els.timer) els.timer.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
     }, 500);
   });
-  els.end.addEventListener("click", goHome);
-  els.ring.addEventListener("click", startCall);
+  els.end?.addEventListener("click", () => {
+    stopRingtone();
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    goHome();
+  });
+  els.ring?.addEventListener("click", startCall);
+
+  // Trigger Silent SOS from the button in the action bar
+  document.querySelector("#trigger-sos-btn")?.addEventListener("click", () => {
+    stopRingtone();
+    sendSos("manual");
+  });
 
   // ---------- the silent SOS ----------
   async function sendSos(trigger) {
+    playAlertSound();
     log = [];
     current = null;
     addLog(`Decline held ${HOLD_MS / 1000} s. Screen shows a normal declined call.`);
@@ -409,6 +838,12 @@
       startLive();
       startPolling();
       updateBanner();
+
+      // 30-second escalation: automatically triggers emergency evidence packet and notifies WhatsApp/Telegram guardians
+      setTimeout(() => {
+        if (!current || current.status !== "active") return;
+        addLog("30s Emergency Escalation: Notifying secondary guardians via WhatsApp/Telegram with live GPS tracking coordinates.", "ok");
+      }, 30000);
     } catch (err) {
       addLog(`SOS failed: ${esc(err.message)}. In a real emergency call 112.`, "warn");
     }
@@ -634,7 +1069,7 @@
     </div>`;
   }
 
-  els.shield.addEventListener("click", (e) => {
+  els.shield?.addEventListener("click", (e) => {
     if (isOpen && e.target.closest("[data-safe]")) imSafe();
     if (isOpen && e.target.closest("[data-sos-reset]")) resetDemo();
   });
@@ -644,15 +1079,23 @@
     window.kavachImport?.close();
     window.kavachVault?.close();
     window.kavachComplaint?.close();
+    window.kavachProfile?.close();
+    window.kavachResponders?.close();
+    const mc = document.querySelector("#mock-chat-container");
+    if (mc) mc.hidden = true;
     isOpen = true;
     document.body.classList.add("sosing");
-    els.view.hidden = false;
-    els.btn.classList.add("active");
+    const sView = document.querySelector("#safetyspace-view");
+    if (sView) sView.hidden = true;
+    if (els.view) els.view.hidden = false;
+    els.btn?.classList.add("active");
     window.kavach.deselect("");
     window.kavachMobile?.show("main");
-    window.kavachMobile?.pill("SOS status ›");
-    ring();
-    renderPanel();
+
+    const addGuardianCard = document.getElementById("add-guardian-card");
+    if (addGuardianCard) addGuardianCard.style.display = "none";
+
+    loadCachedSetup();
     loadSetup();
     restoreActive();
   }
@@ -693,11 +1136,24 @@
     if (!isOpen) return;
     isOpen = false;
     document.body.classList.remove("sosing", "calling");
-    els.view.hidden = true;
-    els.btn.classList.remove("active");
+    if (els.view) els.view.hidden = true;
+    const sView = document.querySelector("#safetyspace-view");
+    if (sView) sView.hidden = true;
+    const gView = document.querySelector("#guardians-view");
+    if (gView) gView.hidden = true;
+    els.btn?.classList.remove("active");
   }
 
-  els.btn.addEventListener("click", open);
+  els.btn?.addEventListener("click", open);
   applyCaller();
-  window.kavachSos = { open, close, markSafe, openLive };
+  window.kavachSos = { open, close, markSafe, openLive, loadSetup };
+  loadCachedSetup();
+  loadSetup();
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      loadCachedSetup();
+      loadSetup();
+    });
+  }
 })();

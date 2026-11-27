@@ -24,14 +24,152 @@
       Kavach
     </button>
     <nav class="nav" aria-label="Main">
-      <button class="nav-link" data-nav="shield" type="button">Garden</button>
+      <button class="nav-link" id="guardians-btn" data-nav="guardians" type="button">Guardians</button>
+      <button class="nav-link" id="safetyspace-btn" data-nav="safetyspace" type="button">Safety Space</button>
       <button class="nav-link" id="vault-btn" data-nav="vault" type="button">Vault <span id="vault-count" class="nav-count">0</span></button>
-      <button class="nav-link" id="sos-btn" data-nav="sos" type="button">Safety Space</button>
-      <a class="nav-link" href="/responder.html" target="_blank" rel="noopener">Responders ↗</a>
+      <button class="nav-link" id="responders-btn" data-nav="responders" type="button">Responders</button>
     </nav>
-    <button class="quick-exit" id="quick-exit" type="button" aria-label="Quick exit to a neutral screen">Quick exit</button>
-    <button class="logout-btn" id="logout-btn" type="button" title="Log out">Log out</button>
-    <span class="nav-status" id="nav-status">Prototype</span>
+
+    <!-- Top-Right Actions: Desktop AI Toggle & Profile Avatar -->
+    <div class="topbar__actions" style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+      <!-- Desktop AI Side Panel Toggle Button (Borderless as requested) -->
+      <button id="toggle-ai-sidebar-btn" type="button" class="btn--ghost small desktop-ai-btn" style="border:none; background:transparent; color:#a5b4fc; font-weight:600; display:flex; align-items:center; gap:6px; padding:6px 10px; cursor:pointer;" title="Kavach AI / Smart Shield Analysis">
+        ✨ <span>Kavach AI</span>
+      </button>
+
+      <!-- Google / Chrome Style Top-Right Account Avatar -->
+      <div class="user-account-wrap" style="position:relative; display:flex; align-items:center;">
+        <button id="google-account-btn" type="button" aria-label="Google User Profile" title="Google Account Profile" style="width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg, #f2b8c6, #b9a6e8); border:2px solid rgba(255,255,255,0.25); color:#0c0e12; font-weight:800; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 10px rgba(0,0,0,0.4); transition:transform 0.15s, box-shadow 0.15s;">
+          <span id="top-avatar-letter">A</span>
+        </button>
+
+        <!-- Google Style Account Dropdown Popover Card -->
+        <div id="google-account-popover" class="glass-panel" style="display:none; position:absolute; top:48px; right:0; width:310px; padding:22px; z-index:9999; box-shadow:0 18px 48px rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.12); border-radius:16px;">
+          <div style="display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:16px;">
+            <div style="width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg, #f2b8c6, #b9a6e8); color:#0c0e12; font-weight:800; font-size:24px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; box-shadow:0 6px 20px rgba(242,184,198,0.35);">
+              <span id="popover-avatar-letter">A</span>
+            </div>
+            <strong id="popover-name" style="font-size:15.5px; color:#fff;">adarshavg</strong>
+            <small id="popover-email" style="color:var(--muted); font-size:12px; margin-top:3px;">adarshavg@kavach.safety</small>
+            <span class="glass-badge" style="color:#10b981; border-color:rgba(16,185,129,0.35); margin-top:10px;">✓ Protected by Kavach</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px; border-top:1px solid rgba(255,255,255,0.08); padding-top:14px;">
+            <button type="button" id="popover-profile-btn" class="btn btn--block" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#fff; font-size:12.5px; padding:9px 12px; border-radius:6px; font-weight:600; text-align:center;">
+              ⚙️ Manage Legal Profile & Details
+            </button>
+            <button type="button" id="popover-logout-btn" class="btn btn--ghost btn--block" style="color:#ef4444; border-color:rgba(239,68,68,0.3); font-size:12px; padding:8px 12px;">
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop 3-Line Menu Button (Right side of profile icon) -->
+      <div class="desktop-menu-wrap" style="position:relative; display:flex; align-items:center;">
+        <button id="desktop-menu-btn" type="button" class="desktop-menu-btn" aria-label="All Dashboards Menu" title="All Dashboards Menu">
+          ☰
+        </button>
+
+        <!-- Desktop Dashboards Dropdown Menu (Luxury High-Craft Glassmorphic Drawer) -->
+        <div id="desktop-dashboards-menu" class="glass-dropdown-drawer" style="display:none;">
+          <!-- Header Section -->
+          <div class="menu-header">
+            <span class="menu-header-title">NAVIGATION</span>
+            <div class="active-session-badge">
+              <span class="active-pulse-dot"></span>
+              <span>ACTIVE SESSION</span>
+            </div>
+          </div>
+          <div class="menu-divider"></div>
+          
+          <!-- Menu Items List with Thin-Stroke Lucide Icons -->
+          <div class="menu-items-list">
+            <button type="button" class="desktop-nav-item" data-nav="home">
+              <svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+              <span>Home</span>
+            </button>
+            <button type="button" class="desktop-nav-item" data-nav="profile">
+              <svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="8" r="5"/>
+                <path d="M20 21a8 8 0 0 0-16 0"/>
+              </svg>
+              <span>Profile</span>
+            </button>
+            <button type="button" class="desktop-nav-item" data-nav="guardians">
+              <svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <span>Guardians</span>
+            </button>
+            <button type="button" class="desktop-nav-item" data-nav="safetyspace">
+              <svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+              </svg>
+              <span>Safety Space</span>
+            </button>
+            <button type="button" class="desktop-nav-item" data-nav="vault">
+              <svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <span>Evidence Vault</span>
+              <span class="menu-pill-badge" id="menu-vault-badge">2</span>
+            </button>
+            <button type="button" class="desktop-nav-item" data-nav="responders">
+              <svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="2"/>
+                <path d="M4.93 19.07a10 10 0 0 1 0-14.14"/>
+                <path d="M7.76 16.24a6 6 0 0 1 0-8.48"/>
+                <path d="M16.24 7.76a6 6 0 0 1 0 8.48"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              </svg>
+              <span>Responders</span>
+            </button>
+            <button type="button" class="desktop-nav-item" data-nav="settings">
+              <svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="4" x2="20" y1="21" y2="21"/>
+                <line x1="4" x2="20" y1="3" y2="3"/>
+                <line x1="4" x2="20" y1="12" y2="12"/>
+                <circle cx="8" cy="12" r="3"/>
+                <circle cx="16" cy="3" r="3"/>
+                <circle cx="14" cy="21" r="3"/>
+              </svg>
+              <span>Settings & Security</span>
+            </button>
+          </div>
+
+          <!-- Special Featured Item: Kavach AI Card -->
+          <div class="menu-featured-wrap">
+            <button type="button" id="desktop-ai-menu-item" class="desktop-nav-item menu-ai-card">
+              <div class="menu-ai-icon-box">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                </svg>
+              </div>
+              <span class="menu-ai-text">Kavach AI</span>
+              <span class="menu-ai-badge">ASSIST</span>
+            </button>
+          </div>
+
+          <div class="menu-divider"></div>
+          
+          <!-- Footer / Sign Out -->
+          <div class="menu-footer">
+            <button type="button" id="desktop-menu-logout-btn" class="desktop-nav-item menu-logout-btn">
+              <svg class="logout-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </header>
 
   <!-- Where she is in the main flow -->
@@ -47,13 +185,33 @@
     <div class="bloom-home__copy">
       <p class="bloom-kicker"><span class="bloom-sparkle" aria-hidden="true">✦</span> YOUR SECURITY, IN FULL BLOOM</p>
       <h1>Still protected.<br><em>Still you.</em></h1>
-      <p class="bloom-home__sub">A little more peace of mind, at your own pace.</p>
+      <p class="bloom-home__sub">Your evidence vault, trusted contacts and SOS stay private to your account. Nobody else on this app can see them. Passwords are protected with Argon2id hashing. We never store or see your actual password.</p>
       <div class="bloom-status"><span class="status-sparkle" aria-hidden="true">✦</span><span><strong>All quiet tonight.</strong><small>Your protection is looking good.</small></span><span class="bloom-status__ring" aria-hidden="true"></span></div>
       <div class="home__cta bloom-home__cta">
-        <button class="btn btn--primary btn--lg" data-go="shield" type="button">Visit your garden <span aria-hidden="true">↗</span></button>
-        <button class="btn btn--lg bloom-secondary" data-go="sos" type="button">Open Safety Space</button>
+        <button class="btn btn--primary btn--lg" data-go="safetyspace" type="button">Open Safety Space <span aria-hidden="true">↗</span></button>
+        <button class="btn btn--lg bloom-secondary" data-go="guardians" type="button">Manage Guardians</button>
       </div>
-      <div class="bloom-preferences"><label><input type="checkbox" id="reduced-motion" /> Reduce motion</label><label><input type="checkbox" id="high-contrast" /> High contrast</label></div>
+      <!-- Unique Safety Pledge & Quotation Showcase -->
+      <div class="bloom-quote-card" style="margin-top:28px; padding:20px 22px; border-radius:18px; background:linear-gradient(135deg, rgba(255,255,255,0.03), rgba(242,184,198,0.04)); border:1px solid rgba(255,255,255,0.08); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="color:#f2b8c6; font-size:16px;">✦</span>
+          <span class="eyebrow" style="font-size:10.5px; letter-spacing:0.14em; color:var(--muted);">KAVACH SAFETY PLEDGE</span>
+        </div>
+        <blockquote style="margin:0; font-family:'Cormorant Garamond', Georgia, serif; font-size:18px; line-height:1.45; font-style:italic; color:#f8fafc;">
+          “Security is not the absence of danger, but the presence of relentless protection. Your story, your dignity, and your evidence stay strictly yours.”
+        </blockquote>
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.06); font-size:11.5px; color:var(--muted);">
+          <span style="display:flex; align-items:center; gap:6px;">
+            <span style="color:#10b981;">🛡️</span> Section 65B IT Act Admissible
+          </span>
+          <span style="display:flex; align-items:center; gap:6px;">
+            <span style="color:#6366f1;">⚡</span> 0-Knowledge Vault
+          </span>
+          <span style="display:flex; align-items:center; gap:6px;">
+            <span style="color:#f59e0b;">📍</span> Live Dynamic Mesh
+          </span>
+        </div>
+      </div>
     </div>
     <div class="bloom-scene" role="img" aria-label="Four softly glowing flowers represent account, device, privacy, and password protection. All are in bloom.">
       <svg class="bloom-orbit" viewBox="0 0 720 600" aria-hidden="true"><ellipse cx="360" cy="300" rx="300" ry="156" transform="rotate(-18 360 300)"/><ellipse cx="360" cy="300" rx="262" ry="205" transform="rotate(32 360 300)"/><path d="M67 356C201 70 483 80 647 301"/></svg>
@@ -65,14 +223,46 @@
       <div class="scene-caption scene-caption--accounts"><span>✦</span> ACCOUNTS</div><div class="scene-caption scene-caption--devices"><span>✦</span> DEVICES</div><div class="scene-caption scene-caption--privacy"><span>✦</span> PRIVACY</div><div class="scene-caption scene-caption--passwords"><span>✦</span> PASSWORDS</div>
       <p class="bloom-scene__fallback">Your garden is growing. Each flower is one part of your digital life.</p>
     </div>
-    <div class="bloom-home__footer"><span>YOUR SPACE, YOUR PACE</span><button type="button" class="btn btn--ghost small" id="reset-all">Reset demo</button></div>
   </section>
 
   <div class="app">
     <!-- Mock chat app: stands in for Instagram / WhatsApp in the demo -->
     <aside class="contacts">
+      <!-- Mobile / Left Sidebar Dashboard Navigation -->
+      <nav class="sidebar-dashboards" style="padding:14px 12px 10px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; gap:4px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; padding:0 4px;">
+          <span class="eyebrow" style="font-size:10.5px; letter-spacing:0.12em; color:var(--muted);">DASHBOARDS</span>
+          <button type="button" id="close-sidebar-menu-btn" class="mobile-only-btn" style="background:transparent; border:none; color:var(--muted); font-size:16px; cursor:pointer;" title="Close Menu">✕</button>
+        </div>
+        <button type="button" class="sidebar-nav-btn" data-nav="home" style="width:100%; padding:9px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:10px; color:var(--text); font-size:13.5px; font-weight:500; cursor:pointer; text-align:left;">
+          Home
+        </button>
+        <button type="button" class="sidebar-nav-btn" data-nav="profile" style="width:100%; padding:9px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:10px; color:var(--text); font-size:13.5px; font-weight:500; cursor:pointer; text-align:left;">
+          Profile
+        </button>
+        <button type="button" class="sidebar-nav-btn" data-nav="guardians" style="width:100%; padding:9px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:10px; color:var(--text); font-size:13.5px; font-weight:500; cursor:pointer; text-align:left;">
+          Guardians
+        </button>
+        <button type="button" class="sidebar-nav-btn" data-nav="safetyspace" style="width:100%; padding:9px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:10px; color:var(--text); font-size:13.5px; font-weight:500; cursor:pointer; text-align:left;">
+          Safety Space
+        </button>
+        <button type="button" class="sidebar-nav-btn" data-nav="vault" style="width:100%; padding:9px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:10px; color:var(--text); font-size:13.5px; font-weight:500; cursor:pointer; text-align:left;">
+          Evidence Vault
+        </button>
+        <button type="button" class="sidebar-nav-btn" data-nav="responders" style="width:100%; padding:9px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:10px; color:var(--text); font-size:13.5px; font-weight:500; cursor:pointer; text-align:left;">
+          Responders
+        </button>
+        <button type="button" class="sidebar-nav-btn" data-nav="settings" style="width:100%; padding:9px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:10px; color:var(--text); font-size:13.5px; font-weight:500; cursor:pointer; text-align:left;">
+          Settings & Security
+        </button>
+        <!-- Borderless Kavach AI in sidebar as requested -->
+        <button type="button" id="sidebar-ai-btn" style="display:flex; align-items:center; gap:8px; width:100%; padding:9px 12px; background:transparent; border:none; color:#a5b4fc; font-size:13.5px; font-weight:600; cursor:pointer; text-align:left;">
+          <span>✨</span> Kavach AI
+        </button>
+      </nav>
+
       <header class="contacts__head">
-        <span class="eyebrow">Chats</span>
+        <span class="eyebrow" id="contacts-eyebrow">Scans & Evidences</span>
         <button type="button" id="clear-chats" class="btn btn--ghost small">Clear</button>
       </header>
       <div class="contacts__import">
@@ -81,34 +271,40 @@
           Scan a screenshot
         </button>
       </div>
+
+
+
       <ul id="contact-list" class="contact-list"></ul>
     </aside>
 
     <main class="chat">
-      <header class="chat__head">
-        <button type="button" class="m-back" id="chat-back" aria-label="Back to chats">‹</button>
-        <div class="avatar" id="chat-avatar">A</div>
-        <div>
-          <div class="chat__name" id="chat-name"></div>
-          <div class="muted small" id="chat-sub"></div>
-        </div>
-      </header>
+      <!-- Mock Chat Scanner Area (only shown when an individual chat is clicked) -->
+      <div id="mock-chat-container" hidden>
+        <header class="chat__head">
+          <button type="button" class="m-back" id="chat-back" aria-label="Back to chats">‹</button>
+          <div class="avatar" id="chat-avatar">A</div>
+          <div>
+            <div class="chat__name" id="chat-name"></div>
+            <div class="muted small" id="chat-sub"></div>
+          </div>
+        </header>
 
-      <!-- The Shield panel reads messages from this element, like an extension content script would -->
-      <section id="chat-area" class="chat__body" aria-live="polite"></section>
+        <!-- The Shield panel reads messages from this element, like an extension content script would -->
+        <section id="chat-area" class="chat__body" aria-live="polite"></section>
 
-      <form id="composer" class="composer">
-        <select id="send-as" title="Send as" aria-label="Send as">
-          <option value="me">You</option>
-          <option value="them">Them</option>
-        </select>
-        <input id="composer-input" autocomplete="off" placeholder="Type a message… (switch to “Them” to simulate the sender)" />
-        <button type="submit" class="btn">Send</button>
-      </form>
+        <form id="composer" class="composer">
+          <select id="send-as" title="Send as" aria-label="Send as">
+            <option value="me">You</option>
+            <option value="them">Them</option>
+          </select>
+          <input id="composer-input" autocomplete="off" placeholder="Type a message… (switch to “Them” to simulate the sender)" />
+          <button type="submit" class="btn">Send</button>
+        </form>
+      </div>
 
       <!-- Screenshot import: the victim pastes a real chat screenshot; OCR runs in this browser -->
       <section id="import-view" class="import" hidden>
-        <header class="import__head">
+        <header class="import__head" style="display:flex; justify-content:space-between; align-items:center;">
           <div>
             <div class="chat__name">Scan a chat screenshot</div>
             <div class="muted small">Read on your device. Never uploaded.</div>
@@ -201,7 +397,8 @@
         <div class="vault__toolbar">
           <button id="copy-letter" type="button" class="btn">Copy letter</button>
           <button id="letter-pdf" type="button" class="btn">Download PDF</button>
-          <button id="file-report" type="button" class="btn btn--primary">Report on cybercrime.gov.in</button>
+          <button id="dispatch-police" type="button" class="btn btn--primary" style="background:#ef4444; border-color:#ef4444; font-weight:700;">🚨 Submit to Cyber Crime Cell / Police</button>
+          <button id="file-report" type="button" class="btn btn--ghost">Open cybercrime.gov.in ↗</button>
           <button id="delete-draft" type="button" class="btn btn--ghost">Delete draft</button>
         </div>
         <div class="complaint__body" id="complaint-body">
@@ -229,104 +426,851 @@
         </div>
       </section>
 
-      <!-- Discreet SOS (prototype): a fake incoming call; holding Decline for 2 s fires SOS silently -->
-      <section id="sos-view" class="sosv" hidden>
+      <!-- Safety Space: Dedicated Stealth De-Escalation & Screenshot Threat Scanner Hub -->
+      <section id="safetyspace-view" class="vault" hidden>
         <header class="vault__head">
           <div>
-            <div class="chat__name">Discreet SOS</div>
-            <div class="muted small">An emergency button that doesn't look like one.</div>
+            <div class="chat__name">Safety Space — Private Security Hub</div>
+            <div class="muted small">Discreet de-escalation tools, on-device OCR chat verification, and emergency safety instruments.</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="glass-badge" style="color:#10b981; border-color:rgba(16,185,129,0.3);">✓ Zero-Knowledge Security</span>
           </div>
         </header>
-        <div class="sosv__body">
-          <div class="phone" id="phone" aria-label="Phone screen">
-            <div class="phone__notch"></div>
-            <div class="phone__status"><span id="phone-clock">9:41</span><span>●●● 4G ▮</span></div>
 
-            <div class="screen screen--incoming" data-screen="incoming">
-              <div class="caller">
-                <div class="caller__avatar" id="caller-initial">M</div>
-                <div class="caller__name" id="caller-name">Mom</div>
-                <div class="caller__sub">mobile · incoming call…</div>
-              </div>
-              <div class="call-extras"><span>⏰<br>Remind me</span><span>💬<br>Message</span></div>
-              <div class="call-actions">
-                <div><button id="decline-btn" class="call-btn call-btn--decline" aria-label="Decline">
-                  <svg viewBox="0 0 24 24" width="30" height="30"><path fill="#fff" d="M12 9c-1.6 0-3.2.3-4.6.7v3.1c0 .4-.2.7-.6.9-1 .5-1.9 1.1-2.7 1.8-.2.2-.4.3-.7.3s-.5-.1-.7-.3L.3 13.1A1 1 0 0 1 0 12.4c0-.3.1-.5.3-.7C3.3 8.8 7.4 7 12 7s8.7 1.8 11.7 4.7c.2.2.3.4.3.7s-.1.5-.3.7l-2.4 2.4c-.2.2-.4.3-.7.3s-.5-.1-.7-.3c-.8-.7-1.7-1.3-2.7-1.8-.3-.2-.6-.5-.6-.9V9.7C15.2 9.3 13.6 9 12 9Z"/></svg>
-                </button><span>Decline</span></div>
-                <div><button id="accept-btn" class="call-btn call-btn--accept" aria-label="Accept">
-                  <svg viewBox="0 0 24 24" width="28" height="28"><path fill="#fff" d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2Z"/></svg>
-                </button><span>Accept</span></div>
+        <div class="vault__body" style="max-width: 920px; margin: 0 auto; padding: 24px;">
+          <!-- Hub Mode Selector (SmartSpend Card Hub) -->
+          <div id="safetyspace-hub" style="display: flex; flex-direction: column; gap: 24px;">
+            <!-- Hero Welcome Card -->
+            <div class="glass-panel" style="padding: 24px 28px; background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(242,184,198,0.08)); border-color: rgba(255,255,255,0.12); border-radius: 20px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div>
+                  <h2 style="margin:0 0 6px 0; font-size:20px; font-weight:700; color:#fff;">Welcome to Your Safety Space</h2>
+                  <p style="margin:0; font-size:13px; color:var(--muted); line-height:1.5;">Choose a dedicated instrument below. Everything runs privately on your device.</p>
+                </div>
+                <div style="display:flex; gap:8px;">
+                  <span class="glass-badge" style="color:#3ecf8e; border-color:rgba(62,207,142,0.3);">● Protection Ready</span>
+                </div>
               </div>
             </div>
 
-            <div class="screen screen--incall" data-screen="incall" hidden>
-              <div class="caller">
-                <div class="caller__avatar" id="caller-initial-2">M</div>
-                <div class="caller__name" id="caller-name-2">Mom</div>
-                <div class="caller__sub" id="call-timer">00:00</div>
+            <!-- Two SmartSpend Action Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+              <!-- Action Card 1: Screenshot Threat Scanner -->
+              <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; border-radius: 20px; border-color: rgba(99,102,241,0.25);">
+                <div>
+                  <div style="width: 50px; height: 50px; border-radius: 16px; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px;">
+                    📸
+                  </div>
+                  <strong style="display: block; font-size: 16.5px; margin-bottom: 6px; color: #fff;">Scan Chat Screenshot</strong>
+                  <p style="font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0;">
+                    Extract and verify messages from WhatsApp, Instagram, or Telegram screenshots using on-device OCR. No cloud uploads.
+                  </p>
+                </div>
+                <button type="button" id="hub-open-scanner-btn" class="btn btn--primary" style="padding: 11px 18px; font-weight: 600; font-size: 13px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                  <span>Launch Threat Scanner</span> <span aria-hidden="true">↗</span>
+                </button>
               </div>
-              <div class="call-actions call-actions--single">
-                <div><button id="end-btn" class="call-btn call-btn--decline" aria-label="End call">
-                  <svg viewBox="0 0 24 24" width="30" height="30"><path fill="#fff" d="M12 9c-1.6 0-3.2.3-4.6.7v3.1c0 .4-.2.7-.6.9-1 .5-1.9 1.1-2.7 1.8-.2.2-.4.3-.7.3s-.5-.1-.7-.3L.3 13.1A1 1 0 0 1 0 12.4c0-.3.1-.5.3-.7C3.3 8.8 7.4 7 12 7s8.7 1.8 11.7 4.7c.2.2.3.4.3.7s-.1.5-.3.7l-2.4 2.4c-.2.2-.4.3-.7.3s-.5-.1-.7-.3c-.8-.7-1.7-1.3-2.7-1.8-.3-.2-.6-.5-.6-.9V9.7C15.2 9.3 13.6 9 12 9Z"/></svg>
-                </button><span>End</span></div>
-              </div>
-            </div>
 
-            <div class="screen screen--home" data-screen="home" hidden>
-              <div class="lock__time" id="lock-time">9:41</div>
-              <div class="lock__date" id="lock-date"></div>
-              <div class="notif"><strong>Phone</strong><span id="missed-text">Missed call: Mom</span></div>
-              <div class="lock__open"><span>Swipe up to open</span><i></i></div>
+              <!-- Action Card 2: Stealth Fake Call Simulator -->
+              <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; border-radius: 20px; border-color: rgba(242,184,198,0.25);">
+                <div>
+                  <div style="width: 50px; height: 50px; border-radius: 16px; background: rgba(242, 184, 198, 0.15); border: 1px solid rgba(242, 184, 198, 0.3); display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px;">
+                    📱
+                  </div>
+                  <strong style="display: block; font-size: 16.5px; margin-bottom: 6px; color: #fff;">Stealth Fake Call Simulator</strong>
+                  <p style="font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0;">
+                    Simulate a realistic incoming phone call from family (with real ringtone audio) to exit uncomfortable situations. Hold Decline 2s for Silent SOS.
+                  </p>
+                </div>
+                <button type="button" id="hub-open-phone-btn" class="btn btn--primary" style="background: linear-gradient(135deg, #f2b8c6, #b9a6e8); color: #0c0e12; border: none; padding: 11px 18px; font-weight: 700; font-size: 13px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                  <span>Open Call Simulator</span> <span aria-hidden="true">↗</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          <div class="sos-side">
-            <ol class="how-steps">
-              <li><strong>Feel unsafe?</strong><span>Can't call for help openly.</span></li>
-              <li><strong>"Mom" calls</strong><span>Looks normal to anyone watching.</span></li>
-              <li><strong>Hold Decline 2 s</strong><span>SOS sent silently. A tap just declines.</span></li>
-            </ol>
-            <button id="ring-btn" type="button" class="btn btn--primary btn--block">📞 Ring the fake call</button>
-            <p class="note">Real app: power-button shortcut.</p>
-            <details class="details-card setup" id="sos-setup">
-              <summary class="setup__summary">
-                <span class="setup__title"><strong>Setup</strong><span class="setup__sub">Who gets your SOS, and how</span></span>
-                <span class="setup__chips" id="channels-status"></span>
-                <span class="setup__chev" aria-hidden="true">›</span>
-              </summary>
-
-              <section class="setup__section">
-                <p class="setup__label"><span class="setup__num">1</span>You</p>
-                <div class="setup__grid">
-                  <label>Your name in alerts<input id="her-name" maxlength="60" placeholder="e.g. Priya" autocomplete="off" /></label>
-                  <label>Fake caller name<input id="caller-input" maxlength="20" placeholder="Mom" /></label>
+          <!-- Dedicated Container: Stealth Phone Simulator (Shown ONLY when Open Call Simulator is clicked) -->
+          <div id="safetyspace-phone-container" style="display: none;">
+            <div class="glass-panel" style="padding: 24px; display: flex; flex-direction: column; align-items: center; border-radius: 24px;">
+              <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+                <div>
+                  <strong style="font-size: 15px; color: var(--text);">Discreet De-Escalation Call Simulator</strong>
+                  <small style="display: block; color: var(--muted); font-size: 12px;">Pretend an incoming family call · Hold Decline 2s for Silent SOS</small>
                 </div>
-                <p class="setup__hint" id="gps-status">Location: this phone's GPS, read only when SOS fires, then live.</p>
-              </section>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="glass-badge" style="color: #3ecf8e; border-color: rgba(62,207,142,0.3);">Prototype Active</span>
+                  <button type="button" id="phone-back-to-hub-btn" class="btn btn--ghost small" style="font-size: 11.5px; padding: 5px 12px; border-radius: 8px;">✕ Close</button>
+                </div>
+              </div>
 
-              <section class="setup__section">
-                <p class="setup__label"><span class="setup__num">2</span>Trusted contacts <span class="setup__count" id="contact-count"></span></p>
-                <ul class="contact-setup" id="contact-setup"></ul>
-                <form class="add-contact" id="add-contact">
-                  <input name="name" placeholder="Name" required maxlength="60" autocomplete="off" />
-                  <input name="email" type="email" placeholder="Gmail / email for SOS alerts" maxlength="120" autocomplete="off" />
-                  <button class="btn" type="submit">Add</button>
-                </form>
-                <button type="button" class="setup__invite" id="invite-btn" hidden>
-                  <span class="setup__invite-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M21.4 4.2 2.9 11.3c-1.3.5-1.3 1.2-.2 1.6l4.7 1.5 1.8 5.6c.2.6.1.9.8.9.5 0 .7-.2 1-.5l2.3-2.2 4.7 3.5c.9.5 1.5.2 1.7-.8l3.1-14.6c.3-1.3-.5-1.9-1.4-1.5ZM8.6 14.2l9.2-5.8c.4-.3.8-.1.5.2l-7.6 6.9-.3 3.2-1.8-4.5Z"/></svg>
-                  </span>
-                  <span><strong>Invite with one Telegram link</strong><small>One QR code. Everyone who taps Start is added.</small></span>
-                  <span class="setup__chev" aria-hidden="true">›</span>
+              <!-- Phone Shell -->
+              <div class="phone" id="phone" aria-label="Phone screen" style="margin: 0 auto; box-shadow: 0 16px 40px rgba(0,0,0,0.6);">
+                <div class="phone__notch"></div>
+                <div class="phone__status"><span id="phone-clock">9:41</span><span>●●● 4G ▮</span></div>
+
+                <!-- Incoming Screen -->
+                <div class="screen screen--incoming" data-screen="incoming">
+                  <div class="caller">
+                    <div class="caller__avatar" id="caller-initial">M</div>
+                    <div class="caller__name" id="caller-name">Mom</div>
+                    <div class="caller__sub">mobile · incoming call…</div>
+                  </div>
+                  <div class="call-extras"><span>⏰<br>Remind me</span><span>💬<br>Message</span></div>
+                  <div class="call-actions">
+                    <div>
+                      <button id="decline-btn" class="call-btn call-btn--decline" type="button" aria-label="Decline" title="Hold 2s for Silent SOS">
+                        <svg viewBox="0 0 24 24" width="28" height="28"><path fill="#fff" d="M12 9c-1.6 0-3.2.3-4.6.7v3.1c0 .4-.2.7-.6.9-1 .5-1.9 1.1-2.7 1.8-.2.2-.4.3-.7.3s-.5-.1-.7-.3L.3 13.1A1 1 0 0 1 0 12.4c0-.3.1-.5.3-.7C3.3 8.8 7.4 7 12 7s8.7 1.8 11.7 4.7c.2.2.3.4.3.7s-.1.5-.3.7l-2.4 2.4c-.2.2-.4.3-.7.3s-.5-.1-.7-.3l-2.7-1.8c-.4-.2-.6-.5-.6-.9V9.7C15.2 9.3 13.6 9 12 9z"/></svg>
+                      </button>
+                      <span class="call-act-label">Decline (Hold 2s SOS)</span>
+                    </div>
+                    <div>
+                      <button id="accept-btn" class="call-btn call-btn--accept ringing-pulse" type="button" aria-label="Accept">
+                        <svg viewBox="0 0 24 24" width="28" height="28"><path fill="#fff" d="M20 15.5c-1.2 0-2.4-.2-3.6-.6-.3-.1-.7 0-1 .2l-2.2 2.2c-2.8-1.4-5.1-3.8-6.6-6.6l2.2-2.2c.3-.3.4-.7.2-1-.3-1.1-.5-2.3-.5-3.5 0-.6-.4-1-1-1H4c-.6 0-1 .4-1 1 0 9.4 7.6 17 17 17 .6 0 1-.4 1-1v-3.5c0-.6-.4-1-1-1z"/></svg>
+                      </button>
+                      <span class="call-act-label">Accept Call</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- In-call Screen -->
+                <div class="screen screen--incall" data-screen="incall" hidden>
+                  <div class="caller">
+                    <div class="caller__avatar" id="caller-initial-2">M</div>
+                    <div class="caller__name" id="caller-name-2">Mom</div>
+                    <div class="caller__sub" id="call-timer">00:00</div>
+                  </div>
+                  <div class="incall-grid">
+                    <div class="incall-item"><span>🔇</span><span>mute</span></div>
+                    <div class="incall-item"><span>⌨️</span><span>keypad</span></div>
+                    <div class="incall-item"><span>🔊</span><span>speaker</span></div>
+                    <div class="incall-item"><span>➕</span><span>add call</span></div>
+                    <div class="incall-item"><span>📹</span><span>FaceTime</span></div>
+                    <div class="incall-item"><span>👤</span><span>contacts</span></div>
+                  </div>
+                  <div class="call-actions" style="justify-content:center; margin-top:20px;">
+                    <button id="end-btn" class="call-btn call-btn--decline" type="button" aria-label="End call">
+                      <svg viewBox="0 0 24 24" width="28" height="28"><path fill="#fff" d="M12 9c-1.6 0-3.2.3-4.6.7v3.1c0 .4-.2.7-.6.9-1 .5-1.9 1.1-2.7 1.8-.2.2-.4.3-.7.3s-.5-.1-.7-.3L.3 13.1A1 1 0 0 1 0 12.4c0-.3.1-.5.3-.7C3.3 8.8 7.4 7 12 7s8.7 1.8 11.7 4.7c.2.2.3.4.3.7s-.1.5-.3.7l-2.4 2.4c-.2.2-.4.3-.7.3s-.5-.1-.7-.3l-2.7-1.8c-.4-.2-.6-.5-.6-.9V9.7C15.2 9.3 13.6 9 12 9z"/></svg>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Lock / Home Screen -->
+                <div class="screen screen--home" data-screen="home" hidden>
+                  <div class="lock-head">
+                    <div class="lock-head__time" id="lock-time">9:41</div>
+                    <div class="lock-head__date" id="lock-date">Friday, 20 November</div>
+                  </div>
+                  <div class="lock-notif">
+                    <div class="lock-notif__app"><span>📞</span><span>PHONE</span><span>now</span></div>
+                    <div class="lock-notif__title" id="missed-text">Missed call: Mom</div>
+                    <div class="lock-notif__body">Tap to call back or swipe up to dismiss.</div>
+                  </div>
+                  <div class="lock-foot"><span class="lock-btn">🔦</span><span class="lock-btn">📷</span></div>
+                </div>
+              </div>
+
+              <!-- Phone Simulator Controls -->
+              <div style="width: 100%; max-width: 440px; margin-top: 20px; display: flex; flex-direction: column; gap: 12px;">
+                <label style="display:flex; justify-content:space-between; align-items:center; font-size:12.5px; color:var(--muted);">
+                  Caller Identity:
+                  <input id="caller-input" value="Mom" class="glass-input" style="width:140px; padding:6px 12px; font-size:12px;" />
+                </label>
+                <button type="button" id="ring-btn" class="btn btn--block" style="background:linear-gradient(135deg, #f2b8c6, #b9a6e8); color:#0c0e12; font-weight:700; border:none; padding:11px; font-size:13px;">
+                  📞 Ring Fake Call (With Ringtone Audio)
                 </button>
-              </section>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                  <button type="button" id="siren-toggle-btn" class="btn btn--ghost" style="border-color:#ef4444; color:#ef4444; font-size:12px; font-weight:600; padding:9px;">
+                    🔊 Sound Alarm Siren
+                  </button>
+                  <button type="button" id="trigger-sos-btn" class="btn btn--primary" style="background:#ef4444; border-color:#ef4444; font-size:12px; font-weight:700; padding:9px;">
+                    🚨 Trigger Silent SOS
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-              <section class="setup__section">
-                <p class="setup__label"><span class="setup__num">3</span>Check it works</p>
-                <p class="setup__warn" id="channel-problem" hidden></p>
-                <button type="button" class="btn btn--block" id="test-channels" hidden>Send a test alert</button>
-              </section>
-            </details>
+      <!-- Emergency Guardians & Contacts Network Screen -->
+      <section id="guardians-view" class="vault" hidden>
+        <header class="vault__head">
+          <div>
+            <div class="chat__name">Emergency Guardians & Contacts Network</div>
+            <div class="muted small">Trusted contacts who receive instant SOS sirens, live GPS coordinates, and automated safety alerts.</div>
+          </div>
+          <span id="channels-status" class="setup__chips"></span>
+        </header>
+
+        <div class="vault__body" style="max-width: 860px; margin: 0 auto; padding: 24px;">
+          <!-- Live Status & SOS Broadcast Banner -->
+          <div class="glass-card" style="padding: 16px 20px; margin-bottom: 24px; background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.04)); border-color: rgba(239, 68, 68, 0.3); border-radius: 18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+              <div>
+                <strong style="color:#ef4444; font-size:15px; display:block; margin-bottom:2px;">🚨 Real-Time Emergency SOS Network</strong>
+                <span id="gps-status" style="font-size:12px; color:var(--muted);">GPS: High-accuracy active geolocation tracking</span>
+              </div>
+              <button type="button" class="btn btn--ghost small" id="test-channels" style="font-size:11.5px;">Test Alert Channels</button>
+            </div>
+            <p id="channel-problem" class="setup__warn" hidden style="margin-top:10px; margin-bottom:0; font-size:12px;"></p>
+          </div>
+
+          <!-- Guardians List Card -->
+          <div class="glass-panel" style="padding: 24px; border-radius: 22px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
+              <div>
+                <strong style="font-size:16.5px; color:var(--text);">Trusted Emergency Guardians</strong>
+                <span id="contact-count" style="font-size:12px; color:var(--muted); margin-left:8px;">0 configured</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span class="glass-badge" style="color:var(--brand); border-color:rgba(242,184,198,0.3);">Instant Dispatch</span>
+                <button type="button" id="toggle-add-guardian-btn" class="btn btn--primary small" style="font-weight:600; font-size:12px; padding:7px 14px; border-radius:10px;">
+                  + Add Guardian
+                </button>
+              </div>
+            </div>
+
+            <!-- Collapsible Add Guardian Form Modal / Drawer -->
+            <div id="add-guardian-card" style="display:none; margin-bottom:24px; padding:20px; border:1px solid rgba(255,255,255,0.12); border-radius:18px; background:rgba(255,255,255,0.03);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <div>
+                  <strong style="display:block; font-size:14.5px; color:var(--text);">+ Add New Emergency Guardian</strong>
+                  <small style="color:var(--muted); font-size:11.5px;">Guardians receive instant GPS tracking coordinates & siren alert during emergency.</small>
+                </div>
+                <button type="button" id="cancel-add-guardian-btn" class="btn btn--ghost small" style="font-size:11px; padding:4px 8px;">✕ Cancel</button>
+              </div>
+              <form class="add-contact" id="add-contact" style="display:flex; flex-direction:column; gap:14px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <input name="name" placeholder="Guardian Full Name" required maxlength="60" autocomplete="off" class="glass-input" />
+                  <select name="relationship" class="glass-input" style="background:#0c0e12 !important;">
+                    <option value="Parent">Parent</option>
+                    <option value="Mother">Mother</option>
+                    <option value="Father">Father</option>
+                    <option value="Spouse">Spouse / Partner</option>
+                    <option value="Sibling">Sibling</option>
+                    <option value="Friend">Trusted Friend</option>
+                    <option value="Guardian">Legal Guardian</option>
+                  </select>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <input name="phone" type="tel" placeholder="Mobile Phone (SMS & Voice)" maxlength="30" autocomplete="off" class="glass-input" />
+                  <input name="whatsapp" type="tel" placeholder="WhatsApp Number" maxlength="30" autocomplete="off" class="glass-input" />
+                </div>
+                <input name="email" type="email" placeholder="Emergency Notification Email (e.g. guardian@gmail.com)" maxlength="120" autocomplete="off" class="glass-input" />
+                <div style="display:flex; gap:10px; margin-top:4px;">
+                  <button class="btn btn--primary" type="submit" style="padding:10px 22px; font-weight:600; font-size:13px; border-radius:10px;">
+                    + Save & Add Guardian
+                  </button>
+                  <button type="button" id="cancel-guardian-btn2" class="btn btn--ghost" style="padding:10px 16px; font-size:13px; border-radius:10px;">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- List rendered dynamically by sos.js -->
+            <ul class="contact-setup" id="contact-setup" style="display:flex; flex-direction:column; gap:12px; list-style:none; padding:0; margin:0;"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Responders & Emergency Helpdesks Screen -->
+      <section id="responders-view" class="vault" hidden>
+        <header class="vault__head">
+          <div>
+            <div class="chat__name">Emergency Responders & Helplines</div>
+            <div class="muted small">Direct 24/7 national safety helplines, police cyber cells, and verified community first-responder volunteers.</div>
+          </div>
+        </header>
+        <div class="vault__body" style="max-width: 960px; margin: 0 auto; padding: 24px;">
+          <!-- 24/7 Helplines -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+            <div class="glass-card" style="padding:22px; text-align:center; border-color:rgba(239, 68, 68, 0.4); border-radius:18px;">
+              <div style="font-size:32px; font-weight:800; color:#ef4444; letter-spacing:-0.02em;">112</div>
+              <strong style="display:block; margin:6px 0 2px; font-size:15px;">National Emergency</strong>
+              <small style="color:var(--muted); display:block; margin-bottom:14px;">Police · Fire · Medical Dispatch</small>
+              <a href="tel:112" class="btn btn--primary" style="display:inline-block; padding:8px 20px; font-size:13px; background:#ef4444; border-color:#ef4444; border-radius:10px;">📞 Call 112</a>
+            </div>
+            <div class="glass-card" style="padding:22px; text-align:center; border-color:rgba(99, 102, 241, 0.4); border-radius:18px;">
+              <div style="font-size:32px; font-weight:800; color:#6366f1; letter-spacing:-0.02em;">1091</div>
+              <strong style="display:block; margin:6px 0 2px; font-size:15px;">Women in Distress</strong>
+              <small style="color:var(--muted); display:block; margin-bottom:14px;">24x7 Safety & Legal Protection</small>
+              <a href="tel:1091" class="btn btn--primary" style="display:inline-block; padding:8px 20px; font-size:13px; background:#6366f1; border-color:#6366f1; border-radius:10px;">📞 Call 1091</a>
+            </div>
+            <div class="glass-card" style="padding:22px; text-align:center; border-color:rgba(16, 185, 129, 0.4); border-radius:18px;">
+              <div style="font-size:32px; font-weight:800; color:#10b981; letter-spacing:-0.02em;">1930</div>
+              <strong style="display:block; margin:6px 0 2px; font-size:15px;">Cyber Crime Helpline</strong>
+              <small style="color:var(--muted); display:block; margin-bottom:14px;">Extortion, Stalking & Fraud</small>
+              <a href="tel:1930" class="btn btn--primary" style="display:inline-block; padding:8px 20px; font-size:13px; background:#10b981; border-color:#10b981; border-radius:10px;">📞 Call 1930</a>
+            </div>
+          </div>
+
+          <!-- Dynamic Proximity Selector Bar -->
+          <div class="glass-card" style="padding: 16px 20px; margin-bottom: 24px; border-radius: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(16,185,129,0.06));">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(99,102,241,0.2); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                📍
+              </div>
+              <div>
+                <strong style="font-size: 14.5px; color: var(--text);">Your Current Proximity Zone:</strong>
+                <small style="display: block; color: var(--muted); font-size: 12px;">Only nearby responders within 30 km are dispatched for your SOS</small>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <select id="user-zone-select" class="glass-input" style="padding: 8px 12px; font-size: 12.5px; background: #0c0e12 !important; min-width: 200px;">
+                <option value="12.9716,77.5946">Bengaluru (12.97°N, 77.59°E)</option>
+                <option value="13.4355,77.7315">Chikkaballapur (13.43°N, 77.73°E)</option>
+                <option value="12.2958,76.6394">Mysuru (12.29°N, 76.63°E)</option>
+                <option value="12.9141,74.8560">Mangaluru (12.91°N, 74.85°E)</option>
+                <option value="15.3647,75.1240">Hubballi (15.36°N, 75.12°E)</option>
+              </select>
+              <button type="button" id="detect-gps-btn" class="btn btn--ghost small" style="font-size: 12px; padding: 7px 12px; border-radius: 8px;">
+                🎯 Detect GPS
+              </button>
+            </div>
+          </div>
+
+          <!-- Active First Responders Grid & Registration -->
+          <div class="responders-layout-grid">
+            <!-- Active Responders List -->
+            <div class="glass-panel" style="padding: 22px; border-radius: 20px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+                <div>
+                  <strong style="font-size:16px;">Community Responders</strong>
+                  <small style="display:block; color:var(--muted); font-size:12px;" id="responders-filter-status">Sorted by distance from your current location</small>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <button type="button" id="register-self-responder-btn" class="btn btn--primary small" style="font-size:11.5px; padding:6px 12px; border-radius:8px; font-weight:600;">
+                    🙋 Add Myself as Responder
+                  </button>
+                  <a href="/responder.html" target="_blank" rel="noopener" class="btn btn--ghost small" style="font-size:11.5px;">Live Triage Console ↗</a>
+                </div>
+              </div>
+              <div id="responders-list" style="display:flex; flex-direction:column; gap:12px;">
+                <!-- Populated dynamically by profile.js -->
+              </div>
+            </div>
+
+            <!-- Register New Responder Form -->
+            <div class="glass-panel" style="padding: 22px; border-radius: 20px;">
+              <strong style="font-size:15px; display:block; margin-bottom:4px;">+ Register as First Responder</strong>
+              <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">Join the local safety volunteer network. Your coordinates determine which emergencies you can respond to.</p>
+              <form id="add-responder-form" style="display:flex; flex-direction:column; gap:12px;">
+                <input id="resp-name" placeholder="Full Volunteer Name" required maxlength="60" class="glass-input" />
+                <input id="resp-email" type="email" placeholder="Official / Contact Email" required maxlength="120" class="glass-input" />
+                <input id="resp-phone" type="tel" placeholder="Mobile Phone (+91...)" required maxlength="30" class="glass-input" />
+                <input id="resp-org" placeholder="Campus / Organization / Unit" maxlength="60" class="glass-input" />
+                
+                <label style="display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted);">
+                  Volunteer Base Location:
+                  <select id="resp-city-select" class="glass-input" style="background:#0c0e12 !important;">
+                    <option value="12.9716,77.5946">Bengaluru (12.97°N, 77.59°E)</option>
+                    <option value="13.4355,77.7315">Chikkaballapur (13.43°N, 77.73°E)</option>
+                    <option value="12.2958,76.6394">Mysuru (12.29°N, 76.63°E)</option>
+                    <option value="12.9141,74.8560">Mangaluru (12.91°N, 74.85°E)</option>
+                    <option value="custom">📍 Use Device GPS</option>
+                  </select>
+                </label>
+                <input id="resp-lat" type="hidden" value="12.9716" />
+                <input id="resp-lng" type="hidden" value="77.5946" />
+
+                <button type="submit" class="btn btn--primary" style="padding:10px 18px; font-weight:600; font-size:13px; margin-top:4px; border-radius:10px;">
+                  + Submit Registration
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Edit My Responder Details Modal -->
+          <div id="edit-responder-modal" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.75); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); align-items:center; justify-content:center; padding:16px;">
+            <div class="glass-card" style="width:100%; max-width:480px; padding:24px; border-radius:22px; background:rgba(18, 24, 38, 0.96); border:1px solid rgba(255,255,255,0.15); box-shadow:0 20px 60px rgba(0,0,0,0.8);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <div>
+                  <strong style="font-size:16px; color:#fff; display:block;">✏️ Edit Your Responder Profile</strong>
+                  <small style="color:var(--muted); font-size:12px;">Only you can edit your own volunteer details.</small>
+                </div>
+                <button type="button" id="close-edit-responder-modal" class="btn btn--ghost small" style="font-size:14px; padding:4px 10px; border-radius:8px;">✕</button>
+              </div>
+              <form id="edit-responder-form" style="display:flex; flex-direction:column; gap:12px;">
+                <input id="edit-resp-id" type="hidden" />
+                <label style="font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:4px;">
+                  Volunteer Full Name:
+                  <input id="edit-resp-name" required maxlength="60" class="glass-input" />
+                </label>
+                <label style="font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:4px;">
+                  Campus / Organization / Unit:
+                  <input id="edit-resp-org" maxlength="60" class="glass-input" placeholder="e.g. Chikkaballapur Unit" />
+                </label>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                  <label style="font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:4px;">
+                    Phone:
+                    <input id="edit-resp-phone" type="tel" maxlength="30" class="glass-input" />
+                  </label>
+                  <label style="font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:4px;">
+                    Email:
+                    <input id="edit-resp-email" type="email" maxlength="120" class="glass-input" />
+                  </label>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px; flex-wrap:wrap;">
+                  <button type="button" id="edit-resp-gps-btn" class="btn btn--ghost small" style="font-size:11.5px; padding:8px 12px; border-radius:10px;">
+                    📍 Use Device GPS
+                  </button>
+                  <div style="display:flex; gap:8px;">
+                    <button type="button" id="cancel-edit-resp-btn" class="btn btn--ghost small" style="font-size:12px; padding:8px 14px; border-radius:10px;">
+                      Cancel
+                    </button>
+                    <button type="submit" class="btn btn--primary small" style="font-size:12px; padding:8px 18px; font-weight:700; border-radius:10px;">
+                      Save Changes
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- User Profile Screen: Modern Glassmorphic Bento Grid Dashboard -->
+      <section id="profile-view" class="vault profile-viewport-wrapper" hidden>
+        <!-- Ambient Background Mesh: Slow-moving radial gradient orbs -->
+        <div class="ambient-mesh-wrap" aria-hidden="true">
+          <div class="ambient-orb orb-1"></div>
+          <div class="ambient-orb orb-2"></div>
+          <div class="ambient-orb orb-3"></div>
+        </div>
+
+        <header class="vault__head" style="position:relative; z-index:2;">
+          <div>
+            <div class="chat__name">User Profile & Complainant Details</div>
+            <div class="muted small">Personal and legal identity details automatically synchronized into official police complaints.</div>
+          </div>
+        </header>
+
+        <div class="vault__body profile-bento-container" style="max-width: 1100px; margin: 0 auto; padding: 24px; position:relative; z-index:2;">
+          <form id="profile-form">
+            <!-- Full Width Top Card: Hero Identity Header -->
+            <div class="bento-card hero-identity-card" style="margin-bottom: 24px; padding: 28px;">
+              <div class="hero-identity-main">
+                <div class="profile-avatar-container" style="position:relative; flex-shrink:0;">
+                  <div class="profile-avatar-ring">
+                    <div class="profile-avatar">
+                      <img id="prof-avatar-img" class="prof-avatar-img" alt="Profile" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;" />
+                      <span id="prof-avatar-letter">A</span>
+                      <span class="avatar-online-dot"></span>
+                      <button type="button" id="prof-avatar-edit-badge" class="avatar-edit-badge" title="Change Avatar Photo" aria-label="Edit Profile Photo">📷</button>
+                    </div>
+                  </div>
+
+                  <!-- Avatar Edit Popover Menu -->
+                  <div id="avatar-edit-popover" class="glass-panel avatar-popover" style="display:none; position:absolute; top:calc(100% + 8px); left:0; min-width:210px; padding:10px; border-radius:16px; z-index:100; flex-direction:column; gap:4px; box-shadow:0 12px 36px rgba(0,0,0,0.7);">
+                    <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; padding:4px 8px 6px; border-bottom:1px solid rgba(255,255,255,0.08); margin-bottom:4px;">Profile Options</div>
+                    <button type="button" id="avatar-opt-upload" class="avatar-popover-item">
+                      <span>🖼️</span> Upload Photo
+                    </button>
+                    <button type="button" id="avatar-opt-remove" class="avatar-popover-item" style="color:#f87171;">
+                      <span>🗑️</span> Remove Photo
+                    </button>
+                    <div style="border-top:1px solid rgba(255,255,255,0.08); margin:4px 0;"></div>
+                    <button type="button" id="avatar-opt-details" class="avatar-popover-item" style="color:var(--brand, #f2b8c6); font-weight:600;">
+                      <span>✏️</span> Edit Personal Details
+                    </button>
+                  </div>
+                  <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" />
+                </div>
+
+                <div class="hero-identity-meta" style="flex:1;">
+                  <div class="hero-identity-heading">
+                    <h2 id="prof-display-name">adarshavg</h2>
+                    <span class="glass-badge badge-protected">
+                      <span class="pulse-emerald-dot"></span>
+                      PROTECTED BY KAVACH
+                    </span>
+                  </div>
+                  <div id="prof-display-email" class="hero-identity-email">adarshavg26@gmail.com</div>
+
+                  <!-- Profile Completeness Progress Bar -->
+                  <div class="profile-strength-box">
+                    <div class="strength-header">
+                      <span id="prof-strength-label" class="strength-label">Profile Strength</span>
+                      <span id="prof-strength-pct" class="strength-pct">85%</span>
+                    </div>
+                    <div class="strength-track">
+                      <div id="prof-strength-bar" class="strength-fill" style="width: 85%;"></div>
+                    </div>
+                    <div id="prof-strength-tip" class="strength-tip">Add emergency contact for 100% legal readiness</div>
+                  </div>
+                </div>
+
+                <!-- Quick Actions Buttons -->
+                <div class="hero-identity-actions">
+                  <button type="button" id="prof-toggle-edit-btn" class="btn-glass-action">
+                    <span class="btn-icon">✏️</span>
+                    <span id="prof-edit-btn-text">Edit Profile</span>
+                  </button>
+                  <button type="button" id="prof-download-dossier-btn" class="btn-glass-primary">
+                    <span class="btn-icon">📄</span>
+                    <span>Download Legal Identity Dossier (PDF)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2-Column Responsive Bento Grid -->
+            <div class="profile-bento-grid">
+              
+              <!-- LEFT COLUMN (60% Width) — Core & Legal Details -->
+              <div class="profile-col-left" style="display:flex; flex-direction:column; gap:20px;">
+                
+                <!-- Card 1: Basic Info Card -->
+                <div class="bento-card card-basic-info">
+                  <div class="bento-card-head">
+                    <div>
+                      <div class="bento-card-title">Complainant Legal Identity</div>
+                      <div class="bento-card-sub">Used to identify the complainant in formal police petitions & court filings.</div>
+                    </div>
+                    <span class="bento-tag">Primary</span>
+                  </div>
+
+                  <div class="bento-fields-list">
+                    <!-- Full Name -->
+                    <div class="bento-field-row">
+                      <div class="field-label">Full Legal Name</div>
+                      <div class="field-value-wrap">
+                        <div class="field-val-view">
+                          <strong id="prof-row-name">adarshavg</strong>
+                        </div>
+                        <div class="field-val-edit" style="display:none;">
+                          <input id="prof-name" class="glass-input" placeholder="e.g. Adarsha VG" required />
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Email -->
+                    <div class="bento-field-row">
+                      <div class="field-label">Email Address</div>
+                      <div class="field-value-wrap">
+                        <div class="field-val-view">
+                          <span id="prof-row-email">adarshavg26@gmail.com</span>
+                          <span class="verified-pill">✓ Verified</span>
+                        </div>
+                        <div class="field-val-edit" style="display:none;">
+                          <input id="prof-email" type="email" class="glass-input" placeholder="user@domain.com" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Phone -->
+                    <div class="bento-field-row">
+                      <div class="field-label">Primary Mobile Phone</div>
+                      <div class="field-value-wrap">
+                        <div class="field-val-view">
+                          <span id="prof-row-phone">7795806293</span>
+                        </div>
+                        <div class="field-val-edit" style="display:none;">
+                          <input id="prof-phone" type="tel" class="glass-input" placeholder="+91 98765 43210" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Emergency Phone -->
+                    <div class="bento-field-row">
+                      <div class="field-label">Emergency Phone</div>
+                      <div class="field-value-wrap">
+                        <div class="field-val-view">
+                          <span id="prof-row-alt-phone" style="color:var(--muted);">Not added</span>
+                          <button type="button" id="btn-add-emergency-pill" class="pill-add-emergency">
+                            + Add Emergency Contact
+                          </button>
+                        </div>
+                        <div class="field-val-edit" style="display:none;">
+                          <input id="prof-alt-phone" type="tel" class="glass-input" placeholder="Alternative contact number" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Card 2: Addresses & Legal Jurisdiction Card -->
+                <div class="bento-card card-jurisdiction">
+                  <div class="bento-card-head">
+                    <div>
+                      <div class="bento-card-title">Addresses & Legal Jurisdiction</div>
+                      <div class="bento-card-sub">Jurisdiction routing for Cyber Crime Police Stations under BNS 2023.</div>
+                    </div>
+                    <button type="button" id="copy-jurisdiction-btn" class="micro-btn-ghost" title="Copy Jurisdiction ID">
+                      📋 Copy Jurisdiction ID
+                    </button>
+                  </div>
+
+                  <div class="bento-fields-list">
+                    <!-- Residential Address -->
+                    <div class="bento-field-row">
+                      <div class="field-label">Residential Address</div>
+                      <div class="field-value-wrap">
+                        <div class="field-val-view">
+                          <span id="prof-row-address">Reva university</span>
+                        </div>
+                        <div class="field-val-edit" style="display:none;">
+                          <textarea id="prof-address" rows="2" class="glass-input" placeholder="#42, 5th Cross, Bengaluru" style="resize:vertical;"></textarea>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- City & State -->
+                    <div class="bento-field-row">
+                      <div class="field-label">City & State</div>
+                      <div class="field-value-wrap">
+                        <div class="field-val-view">
+                          <span id="prof-row-city">Bengaluru, Karnataka</span>
+                        </div>
+                        <div class="field-val-edit" style="display:none;">
+                          <input id="prof-city" class="glass-input" placeholder="Bengaluru, Karnataka" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Nearest Police Station -->
+                    <div class="bento-field-row">
+                      <div class="field-label">Nearest Police Station</div>
+                      <div class="field-value-wrap">
+                        <div class="field-val-view" style="display:flex; align-items:center; gap:6px;">
+                          <span class="station-pin">📍</span>
+                          <span id="prof-row-station">Indiranagar Cyber Crime Station</span>
+                        </div>
+                        <div class="field-val-edit" style="display:none;">
+                          <input id="prof-police-station" class="glass-input" placeholder="Indiranagar Police Station" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Complainant Standing with Light-sweep shimmer -->
+                    <div class="bento-field-row legal-shimmer-row">
+                      <div class="field-label">Legal Complainant Standing</div>
+                      <div class="field-value-wrap">
+                        <div class="shimmer-badge-wrap">
+                          <span class="shimmer-badge">
+                            <span class="shimmer-sweep"></span>
+                            <span class="badge-icon">⚖️</span>
+                            <span>VERIFIED SECTION 65B IT ACT COMPLAINANT</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- RIGHT COLUMN (40% Width) — Real-World Safety & Account Trust -->
+              <div class="profile-col-right" style="display:flex; flex-direction:column; gap:20px;">
+                
+                <!-- Card 3: Guardian & SOS Readiness Card -->
+                <div class="bento-card card-guardian-readiness">
+                  <div class="bento-card-head">
+                    <div>
+                      <div class="bento-card-title">Guardian & SOS Readiness</div>
+                      <div class="bento-card-sub">Real-time alert routing & immediate responder network.</div>
+                    </div>
+                    <span class="pulse-indicator"></span>
+                  </div>
+
+                  <div class="guardian-kpi-block">
+                    <div class="kpi-main-stat">
+                      <span class="kpi-icon">🛡️</span>
+                      <div>
+                        <span id="prof-kpi-guardians" class="kpi-number">2 Guardians Linked</span>
+                        <div class="kpi-sub">Telegram & Email sirens armed</div>
+                      </div>
+                    </div>
+                    <button type="button" class="micro-btn-outline" onclick="location.hash='#guardians'">Manage Guardians →</button>
+                  </div>
+
+                  <div class="readiness-toggles-list">
+                    <div class="readiness-item">
+                      <div class="readiness-info">
+                        <strong>Auto-Sync to Police Complaints</strong>
+                        <span>Automatically insert verified complainant details to generated FIR petitions.</span>
+                      </div>
+                      <label class="switch-toggle" title="Toggle Auto-Sync">
+                        <input type="checkbox" id="prof-auto-sync-toggle" checked />
+                        <span class="slider"></span>
+                      </label>
+                    </div>
+
+                    <div class="readiness-item">
+                      <div class="readiness-info">
+                        <strong>Live Location Sharing</strong>
+                        <span id="prof-location-sub">High-accuracy GPS active for responders</span>
+                      </div>
+                      <span class="status-live-loc">
+                        <span class="loc-dot"></span> Active
+                      </span>
+                    </div>
+
+                    <div class="readiness-item">
+                      <div class="readiness-info">
+                        <strong>Proximity Safety Radius</strong>
+                        <span>Instant dispatch to nearby certified community responders</span>
+                      </div>
+                      <span class="glass-pill-sm">30 km Radius</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Card 4: Security & Digital Signature Card -->
+                <div class="bento-card card-security-signature">
+                  <div class="bento-card-head">
+                    <div>
+                      <div class="bento-card-title">Security & Digital Signature</div>
+                      <div class="bento-card-sub">Tamper-evident legal hash verification.</div>
+                    </div>
+                    <span class="lock-icon">🔒</span>
+                  </div>
+
+                  <div class="security-items-list">
+                    <div class="security-row">
+                      <span class="sec-label">Authentication</span>
+                      <span class="badge-secure">✓ Session Active (Argon2id)</span>
+                    </div>
+
+                    <div class="security-row">
+                      <span class="sec-label">Last Device Login</span>
+                      <span id="prof-last-login" class="sec-val">Today, 19:25 IST · Bengaluru</span>
+                    </div>
+
+                    <div class="security-row signature-row">
+                      <div class="sig-header">
+                        <span class="sec-label">Digital Signature Token (SHA-256)</span>
+                        <button type="button" id="copy-crypto-token-btn" class="micro-copy-btn" title="Copy Signature Token">Copy</button>
+                      </div>
+                      <div class="crypto-hash-box">
+                        <code id="prof-crypto-token">8f4e2b9c3a1078d4...e901a71e</code>
+                      </div>
+                      <span class="crypto-caption">Cryptographically seals all legal complaints and chain-of-custody logs under Section 65B IT Act.</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
+            <!-- Floating Save Changes Bar (Revealed when editing) -->
+            <div id="prof-floating-save-bar" class="prof-floating-bar" style="display:none;">
+              <div class="floating-bar-inner">
+                <div class="floating-bar-info">
+                  <span class="floating-dot"></span>
+                  <span>Unsaved changes in complainant profile</span>
+                </div>
+                <div class="floating-bar-actions">
+                  <button type="button" id="prof-cancel-edit-btn" class="btn btn--ghost small" style="border-radius:10px;">
+                    Cancel
+                  </button>
+                  <button type="button" id="prof-reset-btn" class="btn btn--ghost small" style="border-radius:10px; display:none;">
+                    Reset
+                  </button>
+                  <button type="submit" id="prof-save-changes-btn" class="btn btn--primary small" style="padding:10px 24px; font-weight:700; border-radius:10px;">
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Settings Dashboard Screen -->
+      <section id="settings-view" class="vault" hidden>
+        <header class="vault__head">
+          <div>
+            <div class="chat__name">Settings & Account Security</div>
+            <div class="muted small">Manage account authentication, privacy safeguards, location synchronization, and data lifecycle.</div>
+          </div>
+        </header>
+
+        <div class="vault__body" style="max-width: 860px; margin: 0 auto; padding: 24px;">
+          <div style="display:flex; flex-direction:column; gap:20px;">
+            
+            <!-- Card 1: Account & Authentication -->
+            <div class="glass-panel" style="padding:22px; border-radius:20px;">
+              <strong style="font-size:15.5px; display:block; margin-bottom:4px; color:var(--text);">Account Profile & Credentials</strong>
+              <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">Active user profile authenticated with secure session tokens and Argon2id hashing.</p>
+              
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding:14px 18px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:14px;">
+                <div>
+                  <strong id="settings-user-name" style="font-size:14.5px; color:#fff; display:block;">adarshavg</strong>
+                  <small id="settings-user-email" style="font-size:12.5px; color:var(--muted);">adarshavg@kavach.safety</small>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <span class="glass-badge" style="color:#10b981; border-color:rgba(16,185,129,0.3);">✓ Argon2id Protected</span>
+                  <span class="glass-badge" style="color:#6366f1; border-color:rgba(99,102,241,0.3);">Session Active</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 2: Location & Proximity Dispatch Preferences -->
+            <div class="glass-panel" style="padding:22px; border-radius:20px;">
+              <strong style="font-size:15.5px; display:block; margin-bottom:4px; color:var(--text);">Location & Emergency Dispatch</strong>
+              <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">Automated device GPS synchronization for nearby responder alerts.</p>
+              
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding:14px 18px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:14px;">
+                <div>
+                  <strong style="font-size:13.5px; color:#fff; display:block;">Live Location Synchronization</strong>
+                  <small style="font-size:11.5px; color:var(--muted);">Automatically syncs your coordinates upon opening the app and after returning online.</small>
+                </div>
+                <button type="button" id="settings-recheck-loc-btn" class="btn btn--primary small" style="background:#2563eb; border-color:#2563eb; font-size:12px; padding:7px 16px; border-radius:8px; font-weight:600;">
+                  Confirm Location Now
+                </button>
+              </div>
+            </div>
+
+            <!-- Card 3: Privacy & Tamper-Proof Audit -->
+            <div class="glass-panel" style="padding:22px; border-radius:20px;">
+              <strong style="font-size:15.5px; display:block; margin-bottom:4px; color:var(--text);">Zero-Knowledge Privacy & Legal Audit</strong>
+              <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">Cryptographic safeguards adhering to Bharatiya Nyaya Sanhita (BNS) 2023 & IT Act 2000 Section 65B.</p>
+              
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;" class="details-grid">
+                <div class="glass-card" style="padding:16px; border-radius:16px;">
+                  <strong style="display:block; font-size:13px; color:#3ecf8e; margin-bottom:4px;">🔒 SHA-256 Chained Vault</strong>
+                  <small style="color:var(--muted); font-size:11.5px; line-height:1.4; display:block;">Every saved evidence record is chained with cryptographic hash integrity.</small>
+                </div>
+                <div class="glass-card" style="padding:16px; border-radius:16px;">
+                  <strong style="display:block; font-size:13px; color:#6366f1; margin-bottom:4px;">⚖️ Section 65B Electronic Certificate</strong>
+                  <small style="color:var(--muted); font-size:11.5px; line-height:1.4; display:block;">Auto-generated PDF complaints include legal compliance certifications for police filing.</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 4: Account Lifecycle & Session Control (Positioned at the Bottom) -->
+            <div class="glass-panel" style="padding:22px; border-radius:20px; border-color:rgba(239,68,68,0.22); background:linear-gradient(135deg, rgba(239,68,68,0.04), rgba(15,20,32,0.88));">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                <span style="font-size:16px;">⚠️</span>
+                <strong style="font-size:15.5px; color:#f87171;">Account Lifecycle & Danger Zone</strong>
+              </div>
+              <p style="font-size:12px; color:var(--muted); margin-bottom:18px;">Manage your active session or permanently wipe all cryptographic records from this device.</p>
+              
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; padding:16px; background:rgba(0,0,0,0.28); border:1px solid rgba(255,255,255,0.06); border-radius:16px;">
+                <div>
+                  <strong style="font-size:13.5px; color:#fff; display:block;">Active Session Control</strong>
+                  <small style="font-size:11.5px; color:var(--muted);">Sign out from this terminal and clear session tokens safely.</small>
+                </div>
+                <button type="button" id="settings-logout-btn" class="btn btn--ghost" style="color:#f2b8c6; border-color:rgba(242,184,198,0.4); font-size:12.5px; padding:9px 22px; border-radius:10px; font-weight:600;">
+                  🚪 Sign Out
+                </button>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; padding:16px; background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25); border-radius:16px; margin-top:12px;">
+                <div>
+                  <strong style="font-size:13.5px; color:#ef4444; display:block;">Permanent Data Wipe & Account Deletion</strong>
+                  <small style="font-size:11.5px; color:var(--muted);">Permanently unlinks all guardians, clears vault hashes, and purges account profile.</small>
+                </div>
+                <button type="button" id="settings-delete-account-btn" class="btn btn--ghost" style="color:#ef4444; border-color:rgba(239,68,68,0.5); background:rgba(239,68,68,0.1); font-size:12.5px; padding:9px 22px; border-radius:10px; font-weight:600;">
+                  🗑️ Delete Account & Wipe Data
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
@@ -343,9 +1287,10 @@
             <div class="muted small" id="llm-status">checking backend…</div>
           </div>
         </div>
-        <label class="toggle small" title="Re-scan automatically when a chat opens or a new message arrives">
+        <label class="toggle small" title="Re-scan automatically when a chat opens or a new message arrives" style="margin-left:auto;">
           <input type="checkbox" id="auto-scan" checked /> Auto
         </label>
+        <button type="button" id="close-ai-panel-btn" style="background:transparent; border:none; color:var(--muted); font-size:18px; cursor:pointer; padding:4px 8px; margin-left:6px;" title="Close AI panel">✕</button>
       </header>
 
       <div id="shield-body" class="shield__body">
@@ -371,6 +1316,44 @@
         <p class="muted tiny">Personal details are masked before the AI sees anything.</p>
       </footer>
     </aside>
+  </div>
+
+  <!-- Location Accuracy Modal (Google / Rapido Style System Modal) -->
+  <div id="location-accuracy-modal" style="display:none; position:fixed; inset:0; z-index:100000; background:rgba(0,0,0,0.72); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); align-items:flex-end; justify-content:center; padding:16px;">
+    <div class="glass-panel" style="width:100%; max-width:440px; margin:0 auto; border-radius:24px; padding:24px; border:1px solid rgba(255,255,255,0.15); background:#111624; box-shadow:0 -10px 40px rgba(0,0,0,0.85);">
+      <h3 style="margin:0 0 14px 0; font-size:18px; font-weight:700; color:#fff; line-height:1.35;">
+        To continue, your device will need to use Location Accuracy
+      </h3>
+      <p style="font-size:12.5px; color:var(--muted); margin:0 0 16px 0; line-height:1.45;">
+        The following settings should be on for emergency safety dispatch & proximity responders detection:
+      </p>
+      
+      <div style="display:flex; flex-direction:column; gap:14px; margin-bottom:24px;">
+        <div style="display:flex; align-items:flex-start; gap:12px;">
+          <span style="font-size:20px; color:#60a5fa;">📍</span>
+          <div>
+            <strong style="display:block; font-size:13.5px; color:#fff;">Device location</strong>
+            <small style="color:var(--muted); font-size:11.5px;">Accurately locates you during emergency SOS alerts.</small>
+          </div>
+        </div>
+        <div style="display:flex; align-items:flex-start; gap:12px;">
+          <span style="font-size:20px; color:#38bdf8;">🎯</span>
+          <div>
+            <strong style="display:block; font-size:13.5px; color:#fff;">Location Accuracy</strong>
+            <small style="color:var(--muted); font-size:11.5px;">Provides accurate GPS to dynamically sync nearby responders within 30 km.</small>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; align-items:center; gap:12px;">
+        <button type="button" id="loc-dismiss-btn" class="btn btn--ghost small" style="border:none; color:var(--muted); font-size:13px; font-weight:600; padding:8px 16px;">
+          No, thanks
+        </button>
+        <button type="button" id="loc-turn-on-btn" class="btn btn--primary" style="background:#2563eb; border-color:#2563eb; color:#fff; font-weight:700; font-size:13px; padding:9px 24px; border-radius:999px; box-shadow:0 4px 14px rgba(37,99,235,0.4);">
+          Turn on
+        </button>
+      </div>
+    </div>
   </div>
 
   <div id="toast" class="toast" role="status"></div>
@@ -413,6 +1396,7 @@
   <script src="/js/guardian.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" defer></script>
   <script src="/js/sos.js"></script>
+  <script src="/js/profile.js"></script>
   <script src="/js/nav.js"></script>
 </body>
 </html>

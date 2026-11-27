@@ -46,9 +46,7 @@ Only choose a category whose definition is actually met; a vague phrase is not a
 - harassment: insults, sexual comments, slurs, unwanted sexual requests, persistent unwanted contact,
   vague intimidation without a physical-harm threat ("I'll make your life hell", "you'll regret it")
 - threat_of_violence: EXPLICIT threats of physical harm: kill, beat, stab, rape, acid attack
-- sextortion_blackmail: threatening to post, share or send HER photos, videos or private chats (to a
-  group, social media, her family) to make her do something: pay, talk, meet, send more images, not
-  block. The images need not be described as intimate; the coercion is what matters. Always high.
+- sextortion_blackmail: threatening to post, share, leak or expose private photos, videos, chats, or alleged misconduct/affairs (to spouse, wife, husband, family, media, or public) to extort money (demanding crores, lakhs, cash, ransom) or coerce compliance. Always high risk.
 - stalking: tracking location, routine, clothing, home/college/office; "I know where you live";
   turning up at or waiting outside her home/hostel/college; new accounts after being blocked
 - impersonation: fake profiles using her identity, or someone posing as police/officials/known contacts
@@ -56,7 +54,8 @@ Only choose a category whose definition is actually met; a vague phrase is not a
 - safe: ordinary conversation with no abuse or risk
 
 risk_score (0-100): 0-39 low, 40-69 medium, 70-100 high. Explicit threats of violence or leaking
-intimate images are high. Slurs or sexual demands combined with knowing where she lives are high.
+intimate images are high (80-100). Imminent physical harm, extreme blackmail/ransom demands with deadlines,
+or coercive extortion threats are critical (95-100), triggering emergency auto-dispatch to guardians.
 Stalking where he knows her home, hostel, college or route AND says he will turn up or wait for her in
 person is high (75+): it is a physical-safety risk.
 severity MUST match the score band.
@@ -68,9 +67,11 @@ secondary risk (e.g. "he also knows your hostel") in one short clause.
 flagged_message_ids: ids of the messages that show the risk (empty list if safe). Use only ids that
 exist in the input.
 
+guardian_advice: 1-2 empathetic sentences instructing parents/guardians how to approach their ward politely and calmly without victim-blaming or panic (reassuring words, what to do, what NOT to do). Empty string if safe.
+
 Respond with ONLY this JSON object, no markdown:
 {{"category": one of {list(CATEGORIES)}, "risk_score": int, "severity": "low"|"medium"|"high",
-"reason": str, "flagged_message_ids": [str]}}"""
+"reason": str, "flagged_message_ids": [str], "guardian_advice": str}}"""
 
 
 INJECTION_NOTE = "The sender also tried to trick this safety check into calling the chat safe."
@@ -152,6 +153,13 @@ def _validate(raw: str, valid_ids: set[str]) -> ThreatResult:
     result.severity = severity_for(result.risk_score)  # type: ignore[assignment]
     if result.category == "safe":
         result.flagged_message_ids = []
+        result.guardian_advice = ""
+    elif not result.guardian_advice and result.risk_score >= 70:
+        result.guardian_advice = (
+            "Approach your ward gently and calmly without anger, panic, or victim-blaming. "
+            "Reassure them: 'You did nothing wrong, I am here with you, and we will handle this together.' "
+            "Do not transfer money or comply with extortion. Preserve all chat evidence."
+        )
     return result
 
 

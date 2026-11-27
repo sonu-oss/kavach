@@ -169,6 +169,8 @@
     window.kavachImport?.close();
     window.kavachComplaint?.close();
     window.kavachSos?.close();
+    const mc = document.querySelector("#mock-chat-container");
+    if (mc) mc.hidden = true;
     window.kavachFlow?.set(3);
     window.kavachMobile?.show("main");
     window.kavachMobile?.pill("Details ›");
@@ -195,7 +197,10 @@
     statusById = Object.fromEntries(
       records.map((r) => [r.id, verified ? data.verification.records.find((v) => v.id === r.id)?.status : "unchecked"])
     );
-    els.count.textContent = records.filter((r) => r.kind === "message").length;
+    const msgCount = records.filter((r) => r.kind === "message").length;
+    els.count.textContent = msgCount;
+    const menuVaultBadge = document.querySelector("#menu-vault-badge");
+    if (menuVaultBadge) menuVaultBadge.textContent = msgCount;
     render();
     renderPanel();
   }
@@ -203,8 +208,11 @@
   function render() {
     renderPill();
     if (!records.length) {
-      els.body.innerHTML = `<div class="empty"><p>Nothing sealed yet.</p>
-        <p class="small">Scan a chat, then press <strong>Seal as evidence</strong>.</p></div>`;
+      els.body.innerHTML = `<div class="empty">
+        <div style="font-size:32px; margin-bottom:12px;">🔒</div>
+        <p style="font-size:16px; font-weight:600; color:var(--text); margin-bottom:6px;">Evidence Vault is Empty</p>
+        <p class="small" style="max-width:380px; margin:0 auto; opacity:0.85; line-height:1.5;">When a threat is flagged on WhatsApp Web or Telegram, click <strong>Save Evidence to Vault</strong> on the Kavach banner to seal the chat messages here with SHA-256 cryptographic verification.</p>
+      </div>`;
       return;
     }
     const captures = new Map();
@@ -371,7 +379,10 @@
   async function refreshCount() {
     try {
       const data = await api("/evidence");
-      els.count.textContent = data.records.filter((r) => r.kind === "message").length;
+      const msgCount = data.records.filter((r) => r.kind === "message").length;
+      els.count.textContent = msgCount;
+      const menuVaultBadge = document.querySelector("#menu-vault-badge");
+      if (menuVaultBadge) menuVaultBadge.textContent = msgCount;
     } catch {
       /* backend offline: the Shield panel already says so */
     }
@@ -383,7 +394,7 @@
     } catch {
       demoMode = false;
     }
-    refreshCount();
+    await load({ verified: true }).catch(() => refreshCount());
   })();
 
   window.kavachVault = { save, open, close, screenshotsFor, refreshCount };

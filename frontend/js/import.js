@@ -46,10 +46,18 @@
 
   // ---------- open / close ----------
   function open() {
-    if (isOpen) return;
+    window.kavachNav?.leaveHome();
+    document.body.classList.remove("at-home");
+    document.body.classList.remove("menu-open");
     window.kavachVault?.close();
     window.kavachComplaint?.close();
     window.kavachSos?.close();
+    window.kavachGuardians?.close();
+    window.kavachResponders?.close();
+    window.kavachProfile?.close();
+    window.kavachSettings?.close();
+    const mc = document.querySelector("#mock-chat-container");
+    if (mc) mc.hidden = true;
     window.kavachFlow?.set(1);
     window.kavachMobile?.show("main");
     window.kavachMobile?.pill(null);
@@ -66,9 +74,9 @@
     els.view.classList.remove("has-shots");
     renderRows();
     document.body.classList.add("importing");
-    els.view.hidden = false;
-    window.kavach.deselect("Paste a chat screenshot. Kavach reads it on this device, then you check the messages and scan.");
-    els.dropzone.focus();
+    if (els.view) els.view.hidden = false;
+    window.kavach?.deselect?.("Paste a chat screenshot. Kavach reads it on this device, then you check the messages and scan.");
+    els.dropzone?.focus();
   }
 
   function close() {
@@ -118,8 +126,11 @@
   els.btn.addEventListener("click", open);
   els.cancel.addEventListener("click", () => {
     close();
-    const first = window.kavach.conversations[0];
-    if (first) document.querySelector(`.contact[data-id="${first.id}"]`)?.click();
+    window.kavachNav?.go("safetyspace");
+  });
+  document.getElementById("import-back-to-safetyspace")?.addEventListener("click", () => {
+    close();
+    window.kavachNav?.go("safetyspace");
   });
 
   // Screenshots are processed one at a time, in the order they were added.

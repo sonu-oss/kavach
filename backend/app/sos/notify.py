@@ -107,6 +107,37 @@ async def email(to: str | None, subject: str, body: str) -> str:
         return "failed"
 
 
+async def send_guardian_welcome_email(to_email: str, guardian_name: str, user_name: str, telegram_link: str | None = None) -> str:
+    subject = f"🛡️ Kavach Alert: You were added as an Emergency Guardian for {user_name}"
+    tg_part = f"\n• Connect via Telegram for live GPS tracking & siren dispatch: {telegram_link}\n" if telegram_link else ""
+    body = f"""Hello {guardian_name},
+
+{user_name} has designated you as an Emergency Guardian on the Kavach Safety System.
+
+WHAT THIS MEANS:
+• In an emergency or severe harassment event, {user_name} can trigger an Emergency SOS.
+• You will immediately receive instant alert notifications with live GPS location pins.{tg_part}
+If you did not expect this or have questions, please verify directly with {user_name}.
+
+Stay safe,
+Kavach Automated Safety Network
+"""
+    return await email(to_email, subject, body)
+
+
+async def send_siren_alert_email(to_email: str, guardian_name: str, user_name: str, lat: float | None = None, lng: float | None = None) -> str:
+    subject = f"🚨 URGENT EMERGENCY SIREN: {user_name} NEEDS IMMEDIATE HELP"
+    loc_part = f"\nLive GPS Location: https://www.openstreetmap.org/?mlat={lat}&mlon={lng}#map=16/{lat}/{lng}\n" if lat and lng else ""
+    body = f"""🚨 URGENT DISTRESS ALERT FROM KAVACH
+
+{user_name} has triggered an EMERGENCY SIREN ALERT right now.{loc_part}
+Please contact them immediately or verify their safety.
+
+Kavach Emergency SOS Network
+"""
+    return await email(to_email, subject, body)
+
+
 def _email_problem(exc: Exception) -> str:
     if isinstance(exc, smtplib.SMTPAuthenticationError):
         return ("Gmail rejected the login. SMTP_PASSWORD must be a 16-letter App Password "

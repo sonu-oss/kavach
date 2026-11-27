@@ -9,3 +9,4 @@ backend/data/
 .DS_Store
 .vscode/
 .claude/
+backend.log

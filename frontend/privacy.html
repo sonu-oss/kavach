@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Privacy Policy · Kavach 1.0</title>
+  <link rel="icon" href="/assets/icons/icon-192.png" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      background: #09090d; color: #f4ede4; font-family: "DM Sans", sans-serif;
+      line-height: 1.6; padding: 40px clamp(16px, 5vw, 64px); max-width: 860px; margin: 0 auto;
+    }
+    h1 { font-size: 32px; margin-bottom: 8px; color: #fff; }
+    h2 { font-size: 20px; margin-top: 32px; margin-bottom: 12px; color: #ffa8b8; }
+    p, li { font-size: 15px; color: #a9a29a; margin-bottom: 14px; }
+    ul { padding-left: 20px; }
+    .box {
+      background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .1);
+      padding: 18px 22px; border-radius: 12px; margin: 24px 0;
+    }
+    a { color: #f26888; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .back { display: inline-block; margin-bottom: 24px; font-size: 14px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <a href="/index.html" class="back">← Back to Kavach</a>
+  <h1>Privacy Policy</h1>
+  <p><strong>Effective Date:</strong> November 2026 | <strong>Version:</strong> Kavach 1.0</p>
+
+  <div class="box">
+    <p style="color:#fff; margin:0;">
+      <strong>Core Privacy Guarantee:</strong> Your evidence vault, trusted contacts and SOS stay private to your account. Nobody else on this app can see them. Passwords are protected with Argon2id hashing. We never store or see your actual password.
+    </p>
+  </div>
+
+  <h2>1. What Data We Collect & Why</h2>
+  <ul>
+    <li><strong>Account Information:</strong> Your username, email address, mobile number, and full name. This enables emergency alerts and secure account recovery.</li>
+    <li><strong>Emergency Contacts (Guardians):</strong> Names, phone numbers, and optional Telegram usernames of your trusted circle so Kavach can notify them when you trigger an emergency.</li>
+    <li><strong>Location Data:</strong> Location coordinates are captured <em>only</em> when an emergency SOS is triggered or during active responder coordination. We do not track your location in the background during ordinary everyday activities.</li>
+    <li><strong>Evidence Vault:</strong> Chat records and screenshots are encrypted with SHA-256 seal verification and accessible strictly to your signed-in account.</li>
+  </ul>
+
+  <h2>2. How Location is Shared</h2>
+  <p>When you trigger an SOS, an expiring live tracking link is created. Only your verified trusted guardians receive the direct pin. Nearby community responders receive only an approximate radius (1 km area) until they accept the emergency alert.</p>
+
+  <h2>3. Data Isolation and Storage</h2>
+  <p>Every account has its own isolated row partition. We do not share, sell, or monetize user data. All password hashes use Argon2id memory-hard hashing (RFC 9106), ensuring brute-force protection.</p>
+
+  <h2>4. Data Deletion and Account Termination</h2>
+  <p>You have full ownership of your data. You can delete your account and all associated safety logs, contacts, and vault evidence at any time directly through the dashboard (or via <code>DELETE /auth/me</code>). All records are permanently purged.</p>
+
+  <h2>5. Contact the Kavach Safety Team</h2>
+  <p>For inquiries, safety audits, or privacy requests, contact us at <a href="mailto:safety@kavach.org">safety@kavach.org</a> or call national emergency services at <strong>112</strong>.</p>
+</body>
+</html>

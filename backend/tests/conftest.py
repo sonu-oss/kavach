@@ -7,6 +7,7 @@ from app import config, database, vectors
 # Tests never use the DATABASE_URL from .env (that is the real database). They run on SQLite,
 # or on a throwaway Postgres given as KAVACH_TEST_DATABASE_URL.
 config.DATABASE_URL = os.environ.get("KAVACH_TEST_DATABASE_URL", "")
+config.DEMO_MODE = True
 
 
 @pytest.fixture(autouse=True)
